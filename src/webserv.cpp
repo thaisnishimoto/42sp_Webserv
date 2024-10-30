@@ -50,7 +50,6 @@ int	main(void)
   struct epoll_event target_event;
   target_event.events = EPOLLIN;
   target_event.data.fd = sock_fd;
-  
 
   if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, sock_fd, &target_event) == -1)
   {
@@ -58,21 +57,56 @@ int	main(void)
     return 1;
   }
   
-  int fds_ready;
+  int fds_ready = 0;
+
+	char buf[4096];
+
+	const char *response =
+				"HTTP/1.1 200 OK\r\n"
+				"Content-Type: text/html\r\n"
+				"Content-Length: 13\r\n"
+				"\r\n"
+				"<h1>OIE</h1>";
 
   struct epoll_event events_list[MAX_EVENTS];
-  int it = 0;
 	while(42)
 	{
-    fds_ready = epoll_wait(epoll_fd, events_list, MAX_EVENTS, -1);  
-		int	new_fd = accept(sock_fd, NULL, NULL);
-		if (new_fd == -1)
+		std::cout << "Calling epoll_wait. fds ready: " << fds_ready << std::endl;
+		fds_ready = epoll_wait(epoll_fd, events_list, MAX_EVENTS, -1);  
+
+		for(int i = 0; i < fds_ready; i++)
 		{
-			std::perror("Accept failed");
-			return 1;
+			if (events_list[i].data.fd == sock_fd && events_list[i].events == EPOLLIN)
+			{
+				int	new_fd = accept(sock_fd, NULL, NULL);
+				if (new_fd == -1)
+				{
+					std::perror("Accept failed");
+					return 1;
+				}
+				std::cout << "Connection Accept on: " << new_fd << std::endl;
+
+				target_event.events = EPOLLIN | EPOLLOUT;
+  				target_event.data.fd = new_fd;
+				epoll_ctl(epoll_fd, EPOLL_CTL_ADD, new_fd, &target_event);
+			}
+			else if ((events_list[i].events & EPOLLIN) == EPOLLIN)
+			{
+				std::cout << "Reading from fd " <<	events_list[i].data.fd << std::endl;
+				recv(events_list[i].data.fd, buf, 4096, 0);
+				std::cout << buf << std::endl;
+			}
+			else if ((events_list[i].events & EPOLLOUT) == EPOLLOUT)
+			{
+				std::cout << "Sending response" << std::endl;
+				send(events_list[i].data.fd, response, strlen(response), 0);
+				close(events_list[i].data.fd);
+			}
+			else 
+			{
+				std::cout << "Fora dos ifs" << std::endl;
+			}
 		}
-    it++;
-    std::cout << "Connection Accept on: " << new_fd << " iteraitor " << it << std::endl;
 	}
   
 	return 0;
