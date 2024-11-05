@@ -13,13 +13,13 @@ class VirtualServer
 private:
 	int _port; //maybe change to unsigned short int?
 	int _serverFd;
-	std::map<int, std::string&> _clientBuffers;
+	std::map<int, std::string> _clientBuffers;
 
 public:
 	VirtualServer(int port);
 	int acceptConnection(int epollFd);
 	void processRequest(int connectionFd);
-	int getSockFd(void);
+	int getServerFd(void);
 	// Response handleRequest(Request& request);
 
 };

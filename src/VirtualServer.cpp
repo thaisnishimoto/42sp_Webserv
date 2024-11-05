@@ -15,21 +15,24 @@ VirtualServer::VirtualServer(int port): _port(port)
 	listen(_serverFd, 10);
 }
 
-int VirtualServer::getSockFd(void)
+int VirtualServer::getServerFd(void)
 {
 	return _serverFd;
 }
 
 int VirtualServer::acceptConnection(int epollFd)
 {
-  struct epoll_event target_event;
-  int newFd; 
-  
-  newFd = accept(_serverFd, NULL, NULL);
-
-  target_event.events = EPOLLIN;
-  target_event.data.fd = newFd;
-  epoll_ctl(epollFd, EPOLL_CTL_ADD, newFd, &target_event);
-
-  return newFd;
+	struct epoll_event target_event;
+	int newFd; 
+	std::string	buffer;
+	
+	newFd = accept(_serverFd, NULL, NULL);
+	
+	std::pair<int, std::string>	pair(newFd, buffer);
+	_clientBuffers.insert(pair);
+	target_event.events = EPOLLIN;
+	target_event.data.fd = newFd;
+	epoll_ctl(epollFd, EPOLL_CTL_ADD, newFd, &target_event);
+	
+	return newFd;
 }

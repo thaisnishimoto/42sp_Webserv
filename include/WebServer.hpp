@@ -12,9 +12,9 @@
 class WebServer
 {
 private:
-	// std::vector<VirtualServer> _virtualServers;
-  int _epollFd;
-	std::map<int, VirtualServer> _listeners;
+	std::vector<VirtualServer> _virtualServers;
+	int _epollFd;
+	std::map<int, VirtualServer*> _listeners;
 	std::map<int, VirtualServer*> _connections;
 	void init(void);
 
