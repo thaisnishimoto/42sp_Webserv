@@ -26,8 +26,11 @@ void WebServer::init(void)
 }
 
 
-void WebServer::run(void) {
+void WebServer::run(void) 
+{
   int fdsReady;
+  struct epoll_event _eventsList[MAX_EVENTS];
+
   while (true)
   {
     std::cout << "Start run WebSever" << std::endl;

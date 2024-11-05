@@ -2,7 +2,7 @@
 
 VirtualServer::VirtualServer(int port): _port(port)
 {
-	_sockFd = socket(AF_INET, SOCK_STREAM, 0);
+	_serverFd = socket(AF_INET, SOCK_STREAM, 0);
 	//TODO - check for error and how to deal with it.
 
 	struct sockaddr_in	server_address;
@@ -11,11 +11,25 @@ VirtualServer::VirtualServer(int port): _port(port)
 	server_address.sin_family = AF_INET;
 	server_address.sin_port = htons(_port);
 
-	bind(_sockFd, (struct sockaddr *)&server_address, sizeof(sockaddr_in));
-	listen(_sockFd, 10);
+	bind(_serverFd, (struct sockaddr *)&server_address, sizeof(sockaddr_in));
+	listen(_serverFd, 10);
 }
 
 int VirtualServer::getSockFd(void)
 {
-	return _sockFd;
+	return _serverFd;
+}
+
+int VirtualServer::acceptConnection(int epollFd)
+{
+  struct epoll_event target_event;
+  int newFd; 
+  
+  newFd = accept(_serverFd, NULL, NULL);
+
+  target_event.events = EPOLLIN;
+  target_event.data.fd = newFd;
+  epoll_ctl(epollFd, EPOLL_CTL_ADD, newFd, &target_event);
+
+  return newFd;
 }

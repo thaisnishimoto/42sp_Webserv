@@ -4,6 +4,7 @@
 #include <iostream>
 #include <map>
 #include <sys/socket.h>
+#include <sys/epoll.h>
 #include <netdb.h>
 #include <cstring>
 
@@ -11,12 +12,12 @@ class VirtualServer
 {
 private:
 	int _port; //maybe change to unsigned short int?
-	int _sockFd;
+	int _serverFd;
 	std::map<int, std::string&> _clientBuffers;
 
 public:
 	VirtualServer(int port);
-	void acceptConncetion(int sockFd, int epollFd);
+	int acceptConnection(int epollFd);
 	void processRequest(int connectionFd);
 	int getSockFd(void);
 	// Response handleRequest(Request& request);
