@@ -3,4 +3,5 @@
 int main(void)
 {
 	WebServer webServer;
+  webServer.run();
 }
