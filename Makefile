@@ -2,7 +2,7 @@ NAME = web_server
 
 #flags
 CC = c++
-CPPFLAGS = -std=c++98 -Wall -Wextra -Werror
+CPPFLAGS = -std=c++98 -Wall -Wextra -Werror -g3
 DEPFLAGS = -MMD -MP
 TESTFLAGS = -std=c++11 -Wall -Wextra -Werror -I/usr/include/gtest
 TEST_NAME = test_bin
@@ -14,7 +14,9 @@ TEST_DIR = test/
 OBJS_DIR = objs/
 
 #source files without the main file
-SRC_FILES = webserv.cpp 
+SRC_FILES = main.cpp \
+			WebServer \
+			VirtualServer
 
 #test files
 TEST_FILES = test_main test_config test_utils
