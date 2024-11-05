@@ -40,13 +40,19 @@ void WebServer::run(void)
 	fdsReady = epoll_wait(_epollFd, _eventsList, MAX_EVENTS, -1);
 	for (int i = 0; i < fdsReady; i++)
 	{
-		int	serverFd = _eventsList[i].data.fd;
-		if (_listeners.count(serverFd))
+		int	eventFd = _eventsList[i].data.fd;
+		if (_listeners.count(eventFd) == 1)
 		{
-			VirtualServer*	ptr = _listeners[serverFd];
+			VirtualServer*	ptr = _listeners[eventFd];
 			int	connectionFd = ptr->acceptConnection(_epollFd);
 			std::pair<int, VirtualServer*>	pair(connectionFd, ptr);
 			_connections.insert(pair);
+		}
+		else if (_connections.count(eventFd) == 1 &&
+				(_eventsList[i].events & EPOLLIN) == EPOLLIN)
+		{
+			VirtualServer* ptr = _connections[eventFd];
+			ptr->processRequest(eventFd);
 		}
 	}
   }

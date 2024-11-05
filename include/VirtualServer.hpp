@@ -7,6 +7,7 @@
 #include <sys/epoll.h>
 #include <netdb.h>
 #include <cstring>
+#include <unistd.h>
 
 class VirtualServer
 {

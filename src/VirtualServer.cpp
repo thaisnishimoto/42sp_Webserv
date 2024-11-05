@@ -36,3 +36,34 @@ int VirtualServer::acceptConnection(int epollFd)
 	
 	return newFd;
 }
+
+void VirtualServer::processRequest(int connectionFd)
+{
+	std::string& buffer = _clientBuffers[connectionFd];
+
+	char tempBuffer[5];
+
+	ssize_t bytesRead = recv(connectionFd, tempBuffer, sizeof(tempBuffer), 0);
+
+	if (bytesRead > 0)
+	{
+		buffer.append(tempBuffer, bytesRead);
+
+		size_t header_end = buffer.find("\r\n\r\n");
+
+		if (header_end != std::string::npos)
+		{
+			std::cout << buffer << std::endl;
+			// close(connectionFd);
+			buffer.clear();
+		}
+	}
+	else 
+	{
+		std::cout << "Connection closed by the client" << std::endl;
+		buffer.clear();
+		_clientBuffers.erase(connectionFd);
+		close(connectionFd);
+	}
+	
+}
