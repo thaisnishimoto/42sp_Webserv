@@ -47,6 +47,9 @@ $(OBJS_DIR)%.o: $(SRCS_DIR)%.cpp | $(OBJS_DIR)
 $(NAME): $(OBJS)
 	$(CC) $(CPPFLAGS) $(INC) -o $(NAME) $(OBJS)
 
+fd: $(NAME)
+	valgrind --track-fds=yes ./$(NAME)
+
 test:
 	docker build -t cpp-gtest .
 	docker run -it -v $(CURDIR):/app cpp-gtest make -C /app test_inside

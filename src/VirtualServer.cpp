@@ -28,7 +28,7 @@ void VirtualServer::setUpSocket(void)
 	}
 	//TODO - check for error and how to deal with it.
 	// int opt = 1;
- //    setsockopt(_serverFd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    // setsockopt(_serverFd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 }
 
 void VirtualServer::bindSocket(void)
@@ -38,12 +38,23 @@ void VirtualServer::bindSocket(void)
 	server_address.sin_addr.s_addr = INADDR_ANY;
 	server_address.sin_family = AF_INET;
 	server_address.sin_port = htons(_port);
-	bind(_serverFd, (struct sockaddr *)&server_address, sizeof(sockaddr_in));
+
+	if (bind(_serverFd, (struct sockaddr *)&server_address, sizeof(sockaddr_in)) == -1)
+	{
+		close(_serverFd);
+		std::cerr << std::strerror(errno) << std::endl;
+		throw std::runtime_error("Virtual Server Error: could not bind socket");
+	};
 }
 
 void VirtualServer::startListening(void)
 {
-	listen(_serverFd, 10);
+	if (listen(17, 10) == -1)
+	{
+		close(_serverFd);
+		std::cerr << std::strerror(errno) << std::endl;
+		throw std::runtime_error("Virtual Server Error: could not activate listening");
+	};
 }
 
 int VirtualServer::acceptConnection(int epollFd)
