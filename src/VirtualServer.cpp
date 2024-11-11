@@ -27,8 +27,12 @@ void VirtualServer::setUpSocket(void)
 		throw std::runtime_error("Virtual Server Error: could not create socket");
 	}
 	//TODO - check for error and how to deal with it.
-	// int opt = 1;
-    // setsockopt(_serverFd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+	int opt = 1;
+    if (setsockopt(_serverFd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1)
+	{
+		std::cerr << std::strerror(errno) << std::endl;
+		throw std::runtime_error("Virtual Server Error: Could not set socket option");
+	};
 }
 
 void VirtualServer::bindSocket(void)
@@ -49,7 +53,7 @@ void VirtualServer::bindSocket(void)
 
 void VirtualServer::startListening(void)
 {
-	if (listen(17, 10) == -1)
+	if (listen(_serverFd, 10) == -1)
 	{
 		close(_serverFd);
 		std::cerr << std::strerror(errno) << std::endl;
