@@ -1,35 +1,52 @@
 #include "WebServer.hpp"
+#include "VirtualServer.hpp"
+#include <cerrno>
+#include <cstdio>
+#include <stdexcept>
 
 WebServer::WebServer(void)
 {
-	init();
+}
+
+
+WebServer::~WebServer(void)
+{
+   if (_epollFd > 2)
+   {
+       close(_epollFd);
+   }
 }
 
 void WebServer::init(void)
 {
   _epollFd = epoll_create(1);
-  
-	VirtualServer server1(8081), server2(8082);
+  if (_epollFd == -1)
+  {
+     throw std::runtime_error("Server error: Could not create epoll instance");
+  }
 
+	VirtualServer server1(8081), server2(8082);
 	_virtualServers.push_back(server1);
 	_virtualServers.push_back(server2);
 
-	std::pair<int, VirtualServer*> pair1(server1.getServerFd(), &_virtualServers[0]);
-	std::pair<int, VirtualServer*> pair2(server2.getServerFd(), &_virtualServers[1]);
-
-	_listeners.insert(pair1);
-	_listeners.insert(pair2);
-
-  struct epoll_event target_event;
-  target_event.events = EPOLLIN;
-  target_event.data.fd = server1.getServerFd();
-  epoll_ctl(_epollFd, EPOLL_CTL_ADD, server1.getServerFd(), &target_event);
-  target_event.data.fd = server2.getServerFd();
-  epoll_ctl(_epollFd, EPOLL_CTL_ADD, server2.getServerFd(), &target_event);
+	for (size_t i = 0; i < _virtualServers.size(); ++i)
+	{
+	   int serverFd =  _virtualServers[i].getServerFd();
+	   std::pair<int, VirtualServer*> pair(serverFd, &_virtualServers[i]);
+		_listeners.insert(pair);
+		struct epoll_event target_event;
+		target_event.events = EPOLLIN;
+        target_event.data.fd = serverFd;
+       if(epoll_ctl(_epollFd, EPOLL_CTL_ADD, serverFd,&target_event) == -1)
+       {
+           std::cout << errno << std::endl;
+           throw std::runtime_error("Server error: Could not add fd to epoll instance");
+       }
+	}
 }
 
 
-void WebServer::run(void) 
+void WebServer::run(void)
 {
   int fdsReady;
   struct epoll_event _eventsList[MAX_EVENTS];

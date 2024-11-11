@@ -4,6 +4,8 @@ VirtualServer::VirtualServer(int port): _port(port)
 {
 	_serverFd = socket(AF_INET, SOCK_STREAM, 0);
 	//TODO - check for error and how to deal with it.
+	// int opt = 1;
+ //    setsockopt(_serverFd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
 	struct sockaddr_in	server_address;
 	std::memset(&server_address, 0, sizeof(sockaddr_in));
@@ -15,6 +17,11 @@ VirtualServer::VirtualServer(int port): _port(port)
 	listen(_serverFd, 10);
 }
 
+VirtualServer::~VirtualServer(void){
+    std::cout << "VirtualServer destructor called" << std::endl;
+    close(_serverFd);
+}
+
 int VirtualServer::getServerFd(void)
 {
 	return _serverFd;
@@ -23,17 +30,17 @@ int VirtualServer::getServerFd(void)
 int VirtualServer::acceptConnection(int epollFd)
 {
 	struct epoll_event target_event;
-	int newFd; 
+	int newFd;
 	std::string	buffer;
-	
+
 	newFd = accept(_serverFd, NULL, NULL);
-	
+
 	std::pair<int, std::string>	pair(newFd, buffer);
 	_clientBuffers.insert(pair);
 	target_event.events = EPOLLIN;
 	target_event.data.fd = newFd;
 	epoll_ctl(epollFd, EPOLL_CTL_ADD, newFd, &target_event);
-	
+
 	return newFd;
 }
 
@@ -58,12 +65,12 @@ void VirtualServer::processRequest(int connectionFd)
 			buffer.clear();
 		}
 	}
-	else 
+	else
 	{
 		std::cout << "Connection closed by the client" << std::endl;
 		buffer.clear();
 		_clientBuffers.erase(connectionFd);
 		close(connectionFd);
 	}
-	
+
 }

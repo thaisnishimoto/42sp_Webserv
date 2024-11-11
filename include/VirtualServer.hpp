@@ -18,6 +18,7 @@ private:
 
 public:
 	VirtualServer(int port);
+	~VirtualServer(void);
 	int acceptConnection(int epollFd);
 	void processRequest(int connectionFd);
 	int getServerFd(void);

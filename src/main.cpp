@@ -1,7 +1,23 @@
 #include "WebServer.hpp"
+#include <exception>
+#include <iostream>
 
 int main(void)
 {
-	WebServer webServer;
-	webServer.run();
+    try{
+        WebServer webServer;
+        webServer.init();
+        webServer.run();
+    }
+    catch(std::exception &e)
+    {
+        std::cerr << e.what() << std::endl;
+        return 1;
+    }
+    catch (...)
+    {
+        std::cerr << "General error" << std::endl;
+        return 1;
+    }
+    return 0;
 }
