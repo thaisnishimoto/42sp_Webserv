@@ -38,7 +38,7 @@ void WebServer::init(void)
 		target_event.data.fd = serverFd;
 		if (epoll_ctl(_epollFd, EPOLL_CTL_ADD, serverFd, &target_event) == -1)
 		{
-			throw std::runtime_error("Server error: Could not add fd to epoll instance");
+			throw std::runtime_error("Server Error: Could not add fd to epoll instance");
 		}
 	}
 }
@@ -48,10 +48,17 @@ void WebServer::run(void)
 	int fdsReady;
 	struct epoll_event _eventsList[MAX_EVENTS];
 	
+	std::cout << "Main loop initiating..." << std::endl;
 	while (true)
 	{
-		std::cout << "Start run WebSever" << std::endl;
 		fdsReady = epoll_wait(_epollFd, _eventsList, MAX_EVENTS, -1);
+		if (fdsReady == -1)
+		{
+			//TODO: deal with EINTR. (when signal is received during wait)
+			std::cerr << std::strerror(errno) << std::endl;
+			throw std::runtime_error("Server Error: could not create socket");
+		}
+
 		for (int i = 0; i < fdsReady; i++)
 		{
 			int	eventFd = _eventsList[i].data.fd;
