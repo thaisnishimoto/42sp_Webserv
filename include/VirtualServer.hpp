@@ -8,6 +8,7 @@
 #include <netdb.h>
 #include <cstring>
 #include <unistd.h>
+#include <errno.h>
 
 class VirtualServer
 {
@@ -22,6 +23,9 @@ public:
 	int acceptConnection(int epollFd);
 	void processRequest(int connectionFd);
 	int getServerFd(void);
+	void setUpSocket(void);
+	void bindSocket(void);
+	void startListening(void);
 	// Response handleRequest(Request& request);
 
 };

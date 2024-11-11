@@ -7,12 +7,15 @@
 #include <vector>
 #include <sys/epoll.h>
 #include <map>
-
+#include "VirtualServer.hpp"
+#include <cerrno>
+#include <cstdio>
+#include <stdexcept>
 
 class WebServer
 {
 private:
-	std::vector<VirtualServer> _virtualServers;
+	std::vector<VirtualServer*> _virtualServers;
 	int _epollFd;
 	std::map<int, VirtualServer*> _listeners;
 	std::map<int, VirtualServer*> _connections;

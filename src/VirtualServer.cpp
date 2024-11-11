@@ -2,29 +2,48 @@
 
 VirtualServer::VirtualServer(int port): _port(port)
 {
-	_serverFd = socket(AF_INET, SOCK_STREAM, 0);
-	//TODO - check for error and how to deal with it.
-	// int opt = 1;
- //    setsockopt(_serverFd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-
-	struct sockaddr_in	server_address;
-	std::memset(&server_address, 0, sizeof(sockaddr_in));
-	server_address.sin_addr.s_addr = INADDR_ANY;
-	server_address.sin_family = AF_INET;
-	server_address.sin_port = htons(_port);
-
-	bind(_serverFd, (struct sockaddr *)&server_address, sizeof(sockaddr_in));
-	listen(_serverFd, 10);
+	setUpSocket();
+	bindSocket();
+	startListening();
 }
 
-VirtualServer::~VirtualServer(void){
-    std::cout << "VirtualServer destructor called" << std::endl;
-    close(_serverFd);
+VirtualServer::~VirtualServer(void)
+{
+	std::cout << "Virtual Server destructor called" << std::endl;
+	close(_serverFd);
 }
 
 int VirtualServer::getServerFd(void)
 {
 	return _serverFd;
+}
+
+void VirtualServer::setUpSocket(void)
+{
+	_serverFd = socket(AF_INET, SOCK_STREAM, 0);
+	if (_serverFd == -1)
+	{
+		std::cerr << std::strerror(errno) << std::endl;
+		throw std::runtime_error("Virtual Server Error: could not create socket");
+	}
+	//TODO - check for error and how to deal with it.
+	// int opt = 1;
+ //    setsockopt(_serverFd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+}
+
+void VirtualServer::bindSocket(void)
+{
+	struct sockaddr_in	server_address;
+	std::memset(&server_address, 0, sizeof(sockaddr_in));
+	server_address.sin_addr.s_addr = INADDR_ANY;
+	server_address.sin_family = AF_INET;
+	server_address.sin_port = htons(_port);
+	bind(_serverFd, (struct sockaddr *)&server_address, sizeof(sockaddr_in));
+}
+
+void VirtualServer::startListening(void)
+{
+	listen(_serverFd, 10);
 }
 
 int VirtualServer::acceptConnection(int epollFd)
