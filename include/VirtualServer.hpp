@@ -26,6 +26,7 @@ public:
 	void setUpSocket(void);
 	void bindSocket(void);
 	void startListening(void);
+	void setNonBlocking(int fd);
 	// Response handleRequest(Request& request);
 
 };

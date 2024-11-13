@@ -1,4 +1,7 @@
 #include "VirtualServer.hpp"
+#include "WebServer.hpp"
+#include <fcntl.h>
+#include <sys/socket.h>
 
 VirtualServer::VirtualServer(int port): _port(port)
 {
@@ -20,7 +23,7 @@ int VirtualServer::getServerFd(void)
 
 void VirtualServer::setUpSocket(void)
 {
-	_serverFd = socket(AF_INET, SOCK_STREAM, 0);
+	_serverFd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
 	if (_serverFd == -1)
 	{
 		std::cerr << std::strerror(errno) << std::endl;
@@ -68,13 +71,15 @@ int VirtualServer::acceptConnection(int epollFd)
 	std::string	buffer;
 
 	newFd = accept(_serverFd, NULL, NULL);
-
-	std::pair<int, std::string>	pair(newFd, buffer);
-	_clientBuffers.insert(pair);
-	target_event.events = EPOLLIN;
-	target_event.data.fd = newFd;
-	epoll_ctl(epollFd, EPOLL_CTL_ADD, newFd, &target_event);
-
+	if (newFd != -1)
+	{
+	    setNonBlocking(newFd);
+    	std::pair<int, std::string>	pair(newFd, buffer);
+    	_clientBuffers.insert(pair);
+    	target_event.events = EPOLLIN;
+    	target_event.data.fd = newFd;
+    	epoll_ctl(epollFd, EPOLL_CTL_ADD, newFd, &target_event);
+	}
 	return newFd;
 }
 
@@ -107,4 +112,19 @@ void VirtualServer::processRequest(int connectionFd)
 		close(connectionFd);
 	}
 
+}
+
+void VirtualServer::setNonBlocking(int fd)
+{
+   int flag = fcntl(fd, F_GETFL);
+   if (flag < 0)
+   {
+       std::cerr << std::strerror(errno) << std::endl;
+       throw std::runtime_error("Server Error: Could not recover fd flags");
+   }
+   if (fcntl(fd, F_SETFL, flag | O_NONBLOCK) < 0)
+   {
+       std::cerr << std::strerror(errno) << std::endl;
+       throw std::runtime_error("Server Error: Could not set fd to NonBlocking");
+   }
 }

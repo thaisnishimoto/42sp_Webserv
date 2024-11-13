@@ -1,4 +1,5 @@
 #include "WebServer.hpp"
+#include <fcntl.h>
 
 WebServer::WebServer(void)
 {
@@ -23,10 +24,10 @@ void WebServer::init(void)
 	{
 		throw std::runtime_error("Server error: Could not create epoll instance");
 	}
-	
+
 	_virtualServers.push_back(new VirtualServer(8081));
 	_virtualServers.push_back(new VirtualServer(8082));
-	
+
 	for (size_t i = 0; i < _virtualServers.size(); ++i)
 	{
 		int serverFd = _virtualServers[i]->getServerFd();
@@ -47,7 +48,7 @@ void WebServer::run(void)
 {
 	int fdsReady;
 	struct epoll_event _eventsList[MAX_EVENTS];
-	
+
 	std::cout << "Main loop initiating..." << std::endl;
 	while (true)
 	{
@@ -66,6 +67,11 @@ void WebServer::run(void)
 			{
 				VirtualServer*	ptr = _listeners[eventFd];
 				int	connectionFd = ptr->acceptConnection(_epollFd);
+				if (connectionFd == -1)
+				{
+				    //TODO: print to user log
+				    std::cerr << "Accept connection failed" << std::endl;
+				}
 				std::pair<int, VirtualServer*>	pair(connectionFd, ptr);
 				_connections.insert(pair);
 			}

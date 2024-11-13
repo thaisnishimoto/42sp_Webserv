@@ -11,6 +11,7 @@
 #include <cerrno>
 #include <cstdio>
 #include <stdexcept>
+#include <fcntl.h>
 
 class WebServer
 {
