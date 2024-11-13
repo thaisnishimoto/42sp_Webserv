@@ -2,12 +2,14 @@
 #define _WEBSERVER_HPP_
 
 #define MAX_EVENTS 10
+
 #include "VirtualServer.hpp"
+#include "Request.hpp"
+
 #include <stdexcept>
 #include <vector>
 #include <sys/epoll.h>
 #include <map>
-#include "VirtualServer.hpp"
 #include <cerrno>
 #include <cstdio>
 #include <stdexcept>

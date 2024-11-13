@@ -16,7 +16,8 @@ OBJS_DIR = objs/
 #source files without the main file
 SRC_FILES = main.cpp \
 			WebServer \
-			VirtualServer
+			VirtualServer \
+			Request
 
 #test files
 TEST_FILES = test_main test_config test_utils

@@ -99,9 +99,16 @@ void VirtualServer::processRequest(int connectionFd)
 
 		if (header_end != std::string::npos)
 		{
-			std::cout << buffer << std::endl;
+			// std::cout << buffer << std::endl;
+			std::string completeMsg = buffer.substr(0, header_end + 4);
+
+			Request request;
+			request.parseRequest(completeMsg);
+
+			//process request to generate response
+			
 			// close(connectionFd);
-			buffer.clear();
+			buffer.clear(); //TODO: deal with entangled request messages
 		}
 	}
 	else

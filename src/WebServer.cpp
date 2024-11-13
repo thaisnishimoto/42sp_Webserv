@@ -3,6 +3,7 @@
 
 WebServer::WebServer(void)
 {
+    Request::initStaticMethods();
 }
 
 WebServer::~WebServer(void)
