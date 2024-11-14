@@ -1,4 +1,5 @@
 #include "Request.hpp"
+#include <sstream>
 
 std::set<std::string> Request::_implementedMethods;
 std::set<std::string> Request::_otherMethods;
@@ -21,9 +22,19 @@ void	Request::parseRequest(std::string& buffer)
 	std::cout << "---------------------------------" << std::endl;
 	parseRequestLine(buffer);
 	std::cout << "status code: " << _statusCode << std::endl;
-	std::cout << "---------------------------------" << std::endl;
 	if (_statusCode != OK)
 		return ;
+	parseHeader(buffer);
+	
+	std::map<std::string, std::string>::iterator it, ite;
+	it = _headerFields.begin();
+	ite = _headerFields.end();
+	while (it != ite)
+	{
+		std::cout << "key: " << it->first << " | value: " << it->second << std::endl; 
+		++it;
+	}
+	std::cout << "---------------------------------" << std::endl;
 }
 
 void	Request::parseRequestLine(std::string& buffer)
@@ -98,5 +109,46 @@ void Request::parseVersion(std::string &requestLine)
 	if (requestLine != "HTTP/1.1")
 	{
 		_statusCode = BAD_REQUEST;
+	}
+}
+
+void	Request::parseHeader(std::string& buffer)
+{
+	buffer = buffer.substr(buffer.find("\r\n") + 2, std::string::npos);
+
+	std::cout << "inside parseHeader" << std::endl;
+	std::cout << "buffer: " << buffer << std::endl;
+	std::string headerString = getLineRN(buffer);
+
+	while(headerString != "\r\n")
+	{
+		std::string fieldName;
+		std::string fieldValue;
+		size_t colonPos = headerString.find(":");
+
+		if (colonPos == std::string::npos)
+		{
+			_statusCode = BAD_REQUEST;
+			return;
+		}
+
+		fieldName = headerString.substr(0, colonPos);
+		if (fieldName.find(" ") != std::string::npos)
+		{
+			_statusCode = BAD_REQUEST;
+			return;
+		}
+
+		std::istringstream stream(headerString.substr(colonPos+1, std::string::npos));
+		std::getline(stream, fieldValue);
+
+		std::cout << "Field-name: " << fieldName << std::endl;
+		std::cout << "Field-value: " << fieldValue << std::endl;
+
+		std::pair<std::string, std::string> tmp(fieldName, fieldValue);
+		_headerFields.insert(tmp);
+
+		buffer = buffer.substr(buffer.find("\r\n") + 2, std::string::npos);
+		headerString = getLineRN(buffer);
 	}
 }
