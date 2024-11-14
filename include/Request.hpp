@@ -33,6 +33,8 @@ public:
     void	parseRequest(std::string& buffer);
 	void	parseRequestLine(std::string& buffer);
 	void	parseMethod(std::string& requestLine);
+	void	parseTarget(std::string& requestLine);
+	void	parseVersion(std::string& requestLine);
 	std::string getLineRN(std::string buffer);
 };
 
