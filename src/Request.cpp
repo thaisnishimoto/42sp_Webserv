@@ -25,13 +25,15 @@ void	Request::parseRequest(std::string& buffer)
 	if (_statusCode != OK)
 		return ;
 	parseHeader(buffer);
-	
+	std::cout << "status code: " << _statusCode << std::endl;
+	std::cout << std::endl;
+
 	std::map<std::string, std::string>::iterator it, ite;
 	it = _headerFields.begin();
 	ite = _headerFields.end();
 	while (it != ite)
 	{
-		std::cout << "key: " << it->first << " | value: " << it->second << std::endl; 
+		std::cout << "key: " << it->first << " | value: " << it->second << std::endl;
 		++it;
 	}
 	std::cout << "---------------------------------" << std::endl;
@@ -39,13 +41,11 @@ void	Request::parseRequest(std::string& buffer)
 
 void	Request::parseRequestLine(std::string& buffer)
 {
-	_requestLine = getLineRN(buffer);
-	if (_requestLine.size() == 0)
+	_requestLine = getNextLineRN(buffer);
+	if (_requestLine.size() == 2)
 	{
-		buffer = buffer.substr(2, std::string::npos);
-		_requestLine = getLineRN(buffer);
+	   _requestLine = getNextLineRN(buffer);
 	}
-
 	std::cout << "request line: " << _requestLine << std::endl;
 	std::string requestLineCpy = _requestLine;
 	parseMethod(requestLineCpy);
@@ -58,13 +58,17 @@ void	Request::parseRequestLine(std::string& buffer)
 }
 
 
-std::string Request::getLineRN(std::string buffer)
+std::string Request::getNextLineRN(std::string& buffer)
 {
     std::string line;
+
     size_t posRN = buffer.find("\r\n");
 
-    line = buffer.substr(0, posRN);
-
+    if (posRN != std::string::npos)
+    {
+        line = buffer.substr(0, posRN + 2);
+        buffer = buffer.substr(posRN + 2, std::string::npos);
+    }
     return line;
 }
 
@@ -106,7 +110,7 @@ void Request::parseTarget(std::string &requestLine)
 
 void Request::parseVersion(std::string &requestLine)
 {
-	if (requestLine != "HTTP/1.1")
+    if (requestLine != "HTTP/1.1\r\n")
 	{
 		_statusCode = BAD_REQUEST;
 	}
@@ -114,11 +118,9 @@ void Request::parseVersion(std::string &requestLine)
 
 void	Request::parseHeader(std::string& buffer)
 {
-	buffer = buffer.substr(buffer.find("\r\n") + 2, std::string::npos);
-
 	std::cout << "inside parseHeader" << std::endl;
 	std::cout << "buffer: " << buffer << std::endl;
-	std::string headerString = getLineRN(buffer);
+	std::string headerString = getNextLineRN(buffer);
 
 	while(headerString != "\r\n")
 	{
@@ -139,7 +141,7 @@ void	Request::parseHeader(std::string& buffer)
 			return;
 		}
 
-		std::istringstream stream(headerString.substr(colonPos+1, std::string::npos));
+		std::istringstream stream(headerString.substr(colonPos+1, headerString.size() - 2));
 		std::getline(stream, fieldValue);
 
 		std::cout << "Field-name: " << fieldName << std::endl;
@@ -148,7 +150,6 @@ void	Request::parseHeader(std::string& buffer)
 		std::pair<std::string, std::string> tmp(fieldName, fieldValue);
 		_headerFields.insert(tmp);
 
-		buffer = buffer.substr(buffer.find("\r\n") + 2, std::string::npos);
-		headerString = getLineRN(buffer);
+		headerString = getNextLineRN(buffer);
 	}
 }
