@@ -116,17 +116,34 @@ void Request::parseVersion(std::string &requestLine)
 	}
 }
 
+std::string& Request::trim(std::string& str, const std::string delim)
+{
+    // Find the first non-delim character
+    size_t start = str.find_first_not_of(delim);
+    if (start == std::string::npos) {
+        // The string is all whitespace
+		str = "";
+        return str;
+    }
+
+    // Find the last non-whitespace character
+    size_t end = str.find_last_not_of(delim);
+
+    // Create a substring that excludes leading and trailing whitespace
+	str = str.substr(start, end - start + 1);
+	return str;
+}
+
 void	Request::parseHeader(std::string& buffer)
 {
 	std::cout << "inside parseHeader" << std::endl;
 	std::cout << "buffer: " << buffer << std::endl;
-	std::string headerString = getNextLineRN(buffer);
+	std::string fieldLine = getNextLineRN(buffer);
 
-	while(headerString != "\r\n")
+	while(fieldLine != "\r\n")
 	{
 		std::string fieldName;
-		std::string fieldValue;
-		size_t colonPos = headerString.find(":");
+		size_t colonPos = fieldLine.find(":");
 
 		if (colonPos == std::string::npos)
 		{
@@ -134,15 +151,44 @@ void	Request::parseHeader(std::string& buffer)
 			return;
 		}
 
-		fieldName = headerString.substr(0, colonPos);
+		fieldName = fieldLine.substr(0, colonPos);
 		if (fieldName.find(" ") != std::string::npos)
 		{
 			_statusCode = BAD_REQUEST;
 			return;
 		}
 
-		std::istringstream stream(headerString.substr(colonPos+1, headerString.size() - 2));
-		std::getline(stream, fieldValue);
+		std::string fieldLineTail;
+		fieldLineTail = fieldLine.substr(colonPos + 1, std::string::npos);
+		std::cout << "FieldLine Tail: " << fieldLineTail << std::endl;
+
+		std::string fieldValue;
+		while (true)
+		{
+			size_t commaPos = fieldLineTail.find(",");
+			if (commaPos == std::string::npos)
+			{
+				fieldValue = fieldValue + trim(fieldLineTail, " \t");
+				fieldValue = fieldValue + ", " + tmp;
+			}
+			std::string tmp;
+			tmp = fieldLineTail.substr(0, commaPos);
+			std::cout << "Pre trim tmp: " << tmp << std::endl;
+			tmp = trim(tmp, " \t");
+			std::cout << "Post trim tmp: " << tmp << std::endl;
+			if (fieldValue.empty() == true)
+			{
+				fieldValue = tmp;
+			}
+			else 
+			{
+				fieldValue = fieldValue + ", " + tmp;
+			}
+			fieldLineTail = fieldLineTail.substr(commaPos + 1, std::string::npos);
+			std::cout << "fieldLineTail: " << tmp << std::endl;
+			
+			commaPos = fieldLineTail.find(",");
+		}
 
 		std::cout << "Field-name: " << fieldName << std::endl;
 		std::cout << "Field-value: " << fieldValue << std::endl;
@@ -150,6 +196,6 @@ void	Request::parseHeader(std::string& buffer)
 		std::pair<std::string, std::string> tmp(fieldName, fieldValue);
 		_headerFields.insert(tmp);
 
-		headerString = getNextLineRN(buffer);
+		fieldLine = getNextLineRN(buffer);
 	}
 }

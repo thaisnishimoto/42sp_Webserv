@@ -37,6 +37,7 @@ public:
 	void	parseVersion(std::string& requestLine);
 	void	parseHeader(std::string& buffer);
 	std::string getNextLineRN(std::string& buffer);
+	std::string& trim(std::string& str, const std::string delim);
 };
 
 #endif
