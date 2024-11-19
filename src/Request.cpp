@@ -169,7 +169,8 @@ void	Request::parseHeader(std::string& buffer)
 			std::string tmp;
 			if (commaPos == std::string::npos)
 			{
-				fieldValue += trim(fieldLineTail, " \t");
+				// NOTE: removing \r\n from field line
+				fieldValue += trim(fieldLineTail, " \t\r\n");
 				break;
 			}
 			tmp = fieldLineTail.substr(0, commaPos);
@@ -185,8 +186,12 @@ void	Request::parseHeader(std::string& buffer)
 		std::cout << "Field-value: " << fieldValue << std::endl;
 
 		std::pair<std::string, std::string> tmp(fieldName, fieldValue);
-		_headerFields.insert(tmp);
-
+		std::pair<std::map<std::string, std::string>::iterator, bool> insertCheck;
+		insertCheck = _headerFields.insert(tmp);
+		if (insertCheck.second == false)
+		{
+			_headerFields[fieldName] = _headerFields[fieldName] + ", " + fieldValue;
+		}
 		fieldLine = getNextLineRN(buffer);
 	}
 }
