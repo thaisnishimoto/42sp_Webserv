@@ -166,28 +166,19 @@ void	Request::parseHeader(std::string& buffer)
 		while (true)
 		{
 			size_t commaPos = fieldLineTail.find(",");
+			std::string tmp;
 			if (commaPos == std::string::npos)
 			{
-				fieldValue = fieldValue + trim(fieldLineTail, " \t");
-				fieldValue = fieldValue + ", " + tmp;
+				fieldValue += trim(fieldLineTail, " \t");
+				break;
 			}
-			std::string tmp;
 			tmp = fieldLineTail.substr(0, commaPos);
 			std::cout << "Pre trim tmp: " << tmp << std::endl;
-			tmp = trim(tmp, " \t");
+			tmp = trim(tmp, " \t") + ", ";
 			std::cout << "Post trim tmp: " << tmp << std::endl;
-			if (fieldValue.empty() == true)
-			{
-				fieldValue = tmp;
-			}
-			else 
-			{
-				fieldValue = fieldValue + ", " + tmp;
-			}
+			fieldValue += tmp;
 			fieldLineTail = fieldLineTail.substr(commaPos + 1, std::string::npos);
-			std::cout << "fieldLineTail: " << tmp << std::endl;
-			
-			commaPos = fieldLineTail.find(",");
+			std::cout << "fieldLineTail: " << fieldLineTail << std::endl;
 		}
 
 		std::cout << "Field-name: " << fieldName << std::endl;
