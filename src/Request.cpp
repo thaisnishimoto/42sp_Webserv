@@ -1,5 +1,5 @@
 #include "Request.hpp"
-#include <sstream>
+#include "utils.hpp"
 
 std::set<std::string> Request::_implementedMethods;
 std::set<std::string> Request::_otherMethods;
@@ -25,6 +25,8 @@ void Request::parseRequest(std::string& buffer)
     if (_statusCode != OK)
         return;
     parseHeader(buffer);
+    validateHeader();
+
     std::cout << "status code: " << _statusCode << std::endl;
     std::cout << std::endl;
 
@@ -206,6 +208,7 @@ void Request::parseHeader(std::string& buffer)
         std::cout << "Field-name: " << fieldName << std::endl;
         std::cout << "Field-value: " << fieldValues << std::endl;
 
+		tolower(fieldName);
         std::pair<std::string, std::string> tmp(fieldName, fieldValues);
         std::pair<std::map<std::string, std::string>::iterator, bool> insertCheck;
         insertCheck = _headerFields.insert(tmp);
@@ -219,10 +222,30 @@ void Request::parseHeader(std::string& buffer)
 
 bool Request::validateContentLength(void)
 {
-    // if (_headerFields.count("content-length"))
+     if (_headerFields.count("content-length") == 0)
+	 {
+     	return true;
+     }
+     if (_headerFields["content-length"].find(",") != std::string::npos ||
+         _headerFields["content-length"].find(" ") != std::string::npos)
+     {
+     	return  false;
+     }
+     std::istringstream ss(_headerFields["content-length"]);
+     long long value;
+     ss >> value;
+     if (ss.fail() || !ss.eof() || ss.bad() || value < 0)
+     {
+       return false;
+     }
+     return true;
 }
 
 void Request::validateHeader(void)
 {
-
+	if (validateContentLength() == false)
+    {
+          _statusCode = BAD_REQUEST;
+          return;
+    }
 }

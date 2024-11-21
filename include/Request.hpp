@@ -6,8 +6,6 @@
 #include <map>
 #include <set>
 #include <sstream>
-#include <algorithm>
-#include <cctype>
 
 typedef enum
 {

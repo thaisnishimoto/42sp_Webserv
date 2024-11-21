@@ -16,7 +16,7 @@ try:
     message_parts = [
         b"GET / HTTP/1.1\r\n",
         b"Host: localhost, outro localhost,               terceiro localhost        \r\n",
-        b"Date:  Wed,                 19 Nov 2024 12:00:00 GMT \r\n",
+        b"Content-length: 9223372036854775808\r\n",
         b"key2: localhost\r\n",
         b"key2: otherhost\r\n",
         b"key4: localhost\r\n",
