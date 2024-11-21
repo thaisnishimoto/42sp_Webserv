@@ -29,6 +29,7 @@ void WebServer::init(void)
 	_virtualServers.push_back(new VirtualServer(8081));
 	_virtualServers.push_back(new VirtualServer(8082));
 
+
 	for (size_t i = 0; i < _virtualServers.size(); ++i)
 	{
 		int serverFd = _virtualServers[i]->getServerFd();

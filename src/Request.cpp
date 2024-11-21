@@ -17,44 +17,44 @@ void Request::initStaticMethods()
     Request::_otherMethods.insert("TRACE");
 }
 
-void	Request::parseRequest(std::string& buffer)
+void Request::parseRequest(std::string& buffer)
 {
-	std::cout << "---------------------------------" << std::endl;
-	parseRequestLine(buffer);
-	std::cout << "status code: " << _statusCode << std::endl;
-	if (_statusCode != OK)
-		return ;
-	parseHeader(buffer);
-	std::cout << "status code: " << _statusCode << std::endl;
-	std::cout << std::endl;
+    std::cout << "---------------------------------" << std::endl;
+    parseRequestLine(buffer);
+    std::cout << "status code: " << _statusCode << std::endl;
+    if (_statusCode != OK)
+        return;
+    parseHeader(buffer);
+    std::cout << "status code: " << _statusCode << std::endl;
+    std::cout << std::endl;
 
-	std::map<std::string, std::string>::iterator it, ite;
-	it = _headerFields.begin();
-	ite = _headerFields.end();
-	while (it != ite)
-	{
-		std::cout << "key: " << it->first << " | value: " << it->second << std::endl;
-		++it;
-	}
-	std::cout << "---------------------------------" << std::endl;
+    std::map<std::string, std::string>::iterator it, ite;
+    it = _headerFields.begin();
+    ite = _headerFields.end();
+    while (it != ite)
+    {
+        std::cout << "key: " << it->first << " | value: " << it->second << std::endl;
+        ++it;
+    }
+    std::cout << "---------------------------------" << std::endl;
 }
 
-void	Request::parseRequestLine(std::string& buffer)
+void Request::parseRequestLine(std::string& buffer)
 {
-	_requestLine = getNextLineRN(buffer);
-	if (_requestLine.size() == 2)
-	{
-	   _requestLine = getNextLineRN(buffer);
-	}
-	std::cout << "request line: " << _requestLine << std::endl;
-	std::string requestLineCpy = _requestLine;
-	parseMethod(requestLineCpy);
-	if (_statusCode != OK)
-		return ;
-	parseTarget(requestLineCpy);
-	if (_statusCode != OK)
-		return ;
-	parseVersion(requestLineCpy);
+    _requestLine = getNextLineRN(buffer);
+    if (_requestLine.size() == 2)
+    {
+        _requestLine = getNextLineRN(buffer);
+    }
+    std::cout << "request line: " << _requestLine << std::endl;
+    std::string requestLineCpy = _requestLine;
+    parseMethod(requestLineCpy);
+    if (_statusCode != OK)
+        return;
+    parseTarget(requestLineCpy);
+    if (_statusCode != OK)
+        return;
+    parseVersion(requestLineCpy);
 }
 
 
@@ -72,57 +72,58 @@ std::string Request::getNextLineRN(std::string& buffer)
     return line;
 }
 
-void	Request::parseMethod(std::string& requestLine)
+void Request::parseMethod(std::string& requestLine)
 {
-	_method = requestLine.substr(0, requestLine.find(" "));
-	std::cout << "method: " << _method << std::endl;
-	if (_implementedMethods.count(_method) == 1)
-	{
-		_statusCode = OK;
-	}
-	else if (_otherMethods.count(_method) == 1)
-	{
-		_statusCode = METHOD_NOT_IMPLEMENTED;
-	}
-	else
-	{
-		_statusCode = BAD_REQUEST;
-	}
-	std::cout << "status code after parse method: " << _statusCode << std::endl;
+    _method = requestLine.substr(0, requestLine.find(" "));
+    std::cout << "method: " << _method << std::endl;
+    if (_implementedMethods.count(_method) == 1)
+    {
+        _statusCode = OK;
+    }
+    else if (_otherMethods.count(_method) == 1)
+    {
+        _statusCode = METHOD_NOT_IMPLEMENTED;
+    }
+    else
+    {
+        _statusCode = BAD_REQUEST;
+    }
+    std::cout << "status code after parse method: " << _statusCode << std::endl;
 
-	requestLine = requestLine.substr(_method.size() + 1, std::string::npos);
-	std::cout << "Remainder of request line: " << "'" << requestLine << "'" << std::endl;
+    requestLine = requestLine.substr(_method.size() + 1, std::string::npos);
+    std::cout << "Remainder of request line: " << "'" << requestLine << "'" << std::endl;
 
-	//next method will need to verify if number of whitespaces are adequate
+    //next method will need to verify if number of whitespaces are adequate
 }
 
-void Request::parseTarget(std::string &requestLine)
+void Request::parseTarget(std::string& requestLine)
 {
-	_requestTarget = requestLine.substr(0, requestLine.find(" "));
-	std::cout << "request target: " << _requestTarget << std::endl;
-	if (_requestTarget.size() == 0)
-	{
-		_statusCode = BAD_REQUEST;
-	}
-	requestLine = requestLine.substr(_requestTarget.size() + 1, std::string::npos);
-	std::cout << "Remainder of request line: " << "'" << requestLine << "'" << std::endl;
+    _requestTarget = requestLine.substr(0, requestLine.find(" "));
+    std::cout << "request target: " << _requestTarget << std::endl;
+    if (_requestTarget.size() == 0)
+    {
+        _statusCode = BAD_REQUEST;
+    }
+    requestLine = requestLine.substr(_requestTarget.size() + 1, std::string::npos);
+    std::cout << "Remainder of request line: " << "'" << requestLine << "'" << std::endl;
 }
 
-void Request::parseVersion(std::string &requestLine)
+void Request::parseVersion(std::string& requestLine)
 {
     if (requestLine != "HTTP/1.1\r\n")
-	{
-		_statusCode = BAD_REQUEST;
-	}
+    {
+        _statusCode = BAD_REQUEST;
+    }
 }
 
 std::string& Request::trim(std::string& str, const std::string delim)
 {
     // Find the first non-delim character
     size_t start = str.find_first_not_of(delim);
-    if (start == std::string::npos) {
+    if (start == std::string::npos)
+    {
         // The string is all whitespace
-		str = "";
+        str = "";
         return str;
     }
 
@@ -130,68 +131,88 @@ std::string& Request::trim(std::string& str, const std::string delim)
     size_t end = str.find_last_not_of(delim);
 
     // Create a substring that excludes leading and trailing whitespace
-	str = str.substr(start, end - start + 1);
-	return str;
+    str = str.substr(start, end - start + 1);
+    return str;
 }
 
-void	Request::parseHeader(std::string& buffer)
+std::string Request::captureFieldName(std::string& fieldLine)
 {
-	std::cout << "inside parseHeader" << std::endl;
-	std::cout << "buffer: " << buffer << std::endl;
-	std::string fieldLine = getNextLineRN(buffer);
+    size_t colonPos = fieldLine.find(":");
 
-	while(fieldLine != "\r\n")
-	{
-		std::string fieldName;
-		size_t colonPos = fieldLine.find(":");
+    if (colonPos == std::string::npos)
+    {
+        _statusCode = BAD_REQUEST;
+        return "";
+    }
 
-		if (colonPos == std::string::npos)
-		{
-			_statusCode = BAD_REQUEST;
-			return;
-		}
+    std::string fieldName;
+    fieldName = fieldLine.substr(0, colonPos);
+    if (fieldName.find(" ") != std::string::npos)
+    {
+        _statusCode = BAD_REQUEST;
+        return "";
+    }
 
-		fieldName = fieldLine.substr(0, colonPos);
-		if (fieldName.find(" ") != std::string::npos)
-		{
-			_statusCode = BAD_REQUEST;
-			return;
-		}
+    return fieldName;
+}
 
-		std::string fieldLineTail;
-		fieldLineTail = fieldLine.substr(colonPos + 1, std::string::npos);
-		std::cout << "FieldLine Tail: " << fieldLineTail << std::endl;
+std::string Request::captureFieldValues(std::string& fieldLine)
+{
+    size_t colonPos = fieldLine.find(":");
 
-		std::string fieldValue;
-		while (true)
-		{
-			size_t commaPos = fieldLineTail.find(",");
-			std::string tmp;
-			if (commaPos == std::string::npos)
-			{
-				// NOTE: removing \r\n from field line
-				fieldValue += trim(fieldLineTail, " \t\r\n");
-				break;
-			}
-			tmp = fieldLineTail.substr(0, commaPos);
-			std::cout << "Pre trim tmp: " << tmp << std::endl;
-			tmp = trim(tmp, " \t") + ", ";
-			std::cout << "Post trim tmp: " << tmp << std::endl;
-			fieldValue += tmp;
-			fieldLineTail = fieldLineTail.substr(commaPos + 1, std::string::npos);
-			std::cout << "fieldLineTail: " << fieldLineTail << std::endl;
-		}
+    std::string fieldLineTail;
+    fieldLineTail = fieldLine.substr(colonPos + 1, std::string::npos);
+    std::cout << "FieldLine Tail: " << fieldLineTail << std::endl;
 
-		std::cout << "Field-name: " << fieldName << std::endl;
-		std::cout << "Field-value: " << fieldValue << std::endl;
+    std::string fieldValues;
+    while (true)
+    {
+        size_t commaPos = fieldLineTail.find(",");
+        std::string tmp;
+        if (commaPos == std::string::npos)
+        {
+            // NOTE: removing \r\n from field line
+            fieldValues += trim(fieldLineTail, " \t\r\n");
+            break;
+        }
+        tmp = fieldLineTail.substr(0, commaPos);
+        std::cout << "Pre trim tmp: " << tmp << std::endl;
+        tmp = trim(tmp, " \t") + ", ";
+        std::cout << "Post trim tmp: " << tmp << std::endl;
+        fieldValues += tmp;
+        fieldLineTail = fieldLineTail.substr(commaPos + 1, std::string::npos);
+        std::cout << "fieldLineTail: " << fieldLineTail << std::endl;
+    }
 
-		std::pair<std::string, std::string> tmp(fieldName, fieldValue);
-		std::pair<std::map<std::string, std::string>::iterator, bool> insertCheck;
-		insertCheck = _headerFields.insert(tmp);
-		if (insertCheck.second == false)
-		{
-			_headerFields[fieldName] = _headerFields[fieldName] + ", " + fieldValue;
-		}
-		fieldLine = getNextLineRN(buffer);
-	}
+return fieldValues;
+}
+
+void Request::parseHeader(std::string& buffer)
+{
+    std::cout << "inside parseHeader" << std::endl;
+    std::cout << "buffer: " << buffer << std::endl;
+    std::string fieldLine = getNextLineRN(buffer);
+
+    while (fieldLine != "\r\n")
+    {
+        std::string fieldName = captureFieldName(fieldLine);
+        if (fieldName.empty() == true)
+        {
+            return;
+        }
+
+        std::string fieldValues = captureFieldValues(fieldLine);
+
+        std::cout << "Field-name: " << fieldName << std::endl;
+        std::cout << "Field-value: " << fieldValues << std::endl;
+
+        std::pair<std::string, std::string> tmp(fieldName, fieldValues);
+        std::pair<std::map<std::string, std::string>::iterator, bool> insertCheck;
+        insertCheck = _headerFields.insert(tmp);
+        if (insertCheck.second == false)
+        {
+            _headerFields[fieldName] = _headerFields[fieldName] + ", " + fieldValues;
+        }
+        fieldLine = getNextLineRN(buffer);
+    }
 }

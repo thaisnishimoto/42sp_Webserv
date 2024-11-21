@@ -38,6 +38,9 @@ public:
 	void	parseHeader(std::string& buffer);
 	std::string getNextLineRN(std::string& buffer);
 	std::string& trim(std::string& str, const std::string delim);
+	std::string captureFieldName(std::string& fieldLine);
+	std::string captureFieldValues(std::string& fieldLine);
+
 };
 
 #endif
