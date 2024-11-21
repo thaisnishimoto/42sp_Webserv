@@ -216,3 +216,23 @@ void Request::parseHeader(std::string& buffer)
         fieldLine = getNextLineRN(buffer);
     }
 }
+
+void    tolower(std::string& str)
+{
+    std::string::iterator it;
+    for (it = str.begin(); it != str.end(); ++it)
+    {
+        std::tolower(*it);
+    }
+}
+
+bool Request::validateContentLength(void)
+{
+    // if (_headerFields.count("content-length"))
+}
+
+
+void Request::validateHeader(void)
+{
+
+}

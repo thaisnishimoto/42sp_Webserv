@@ -6,6 +6,8 @@
 #include <map>
 #include <set>
 #include <sstream>
+#include <algorithm>
+#include <cctype>
 
 typedef enum
 {
@@ -29,7 +31,7 @@ private:
 	STATUS_CODE _statusCode;
 
 public:
-    static void initStaticMethods();
+    static void initStaticMethods(void);
     void	parseRequest(std::string& buffer);
 	void	parseRequestLine(std::string& buffer);
 	void	parseMethod(std::string& requestLine);
@@ -40,7 +42,8 @@ public:
 	std::string& trim(std::string& str, const std::string delim);
 	std::string captureFieldName(std::string& fieldLine);
 	std::string captureFieldValues(std::string& fieldLine);
-
+	void	validateHeader(void);
+	bool	validateContentLength(void);
 };
 
 #endif
