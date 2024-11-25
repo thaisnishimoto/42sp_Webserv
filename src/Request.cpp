@@ -137,6 +137,16 @@ std::string& Request::trim(std::string& str, const std::string delim)
     return str;
 }
 
+std::string Request::removeCRLF(std::string& fieldValue)
+{
+    size_t posCRLF = fieldValue.find("\r\n");
+    if (posCRLF != std::string::npos)
+    {
+        fieldValue = fieldValue.substr(0, posCRLF);
+    }
+    return fieldValue;
+}
+
 std::string Request::captureFieldName(std::string& fieldLine)
 {
     size_t colonPos = fieldLine.find(":");
@@ -174,7 +184,8 @@ std::string Request::captureFieldValues(std::string& fieldLine)
         if (commaPos == std::string::npos)
         {
             // NOTE: removing \r\n from field line
-            fieldValues += trim(fieldLineTail, " \t\r\n");
+            fieldValues += trim(fieldLineTail, " \t");
+            fieldValues = removeCRLF(fieldValues);
             break;
         }
         tmp = fieldLineTail.substr(0, commaPos);
@@ -187,6 +198,23 @@ std::string Request::captureFieldValues(std::string& fieldLine)
     }
 
 return fieldValues;
+}
+
+bool Request::findExtraRN()
+{
+    std::map<std::string, std::string>::iterator it, ite;
+    it = _headerFields.begin();
+    ite = _headerFields.end();
+    while (it != ite)
+    {
+        if ((it->first.find('\r') != std::string::npos || it->first.find('\n') != std::string::npos) ||
+            (it->second.find('\n') != std::string::npos || it->second.find('\r') != std::string::npos))
+        {
+            return true;
+        }
+        ++it;
+    }
+    return false;
 }
 
 void Request::parseHeader(std::string& buffer)
@@ -247,5 +275,10 @@ void Request::validateHeader(void)
     {
           _statusCode = BAD_REQUEST;
           return;
+    }
+    if (findExtraRN() == true)
+    {
+        _statusCode = BAD_REQUEST;
+        return;
     }
 }

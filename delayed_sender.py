@@ -15,8 +15,9 @@ try:
     # Define message parts to simulate partial sends
     message_parts = [
         b"GET / HTTP/1.1\r\n",
+        b"key: localhost\r\n",
+        b"Content-length: 10\r\n",
         b"Host: localhost, outro localhost,               terceiro localhost        \r\n",
-        b"Content-length: 9223372036854775808\r\n",
         b"key2: localhost\r\n",
         b"key2: otherhost\r\n",
         b"key4: localhost\r\n",

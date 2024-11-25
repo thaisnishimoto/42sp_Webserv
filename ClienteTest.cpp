@@ -53,13 +53,13 @@ void sendRequest(const std::string& host, int port, const std::string& request) 
 
 int main() {
     std::string host = "127.0.0.1"; // Localhost
-    int port = 8081; // Default HTTP port
+    int port = 8084; // Default HTTP port
 
     // Example 1: Valid request
     std::string Request =
         "GET / HTTP/1.1\r\n"
         "Host: 127.0.0.1\r\n"
-        "Content-Length: abc\r\n"
+        "Content-Length: 10 \r\n"
         "Connection: close\r\n\r\n";
 
     std::cout << "----------------------" << std::endl;
