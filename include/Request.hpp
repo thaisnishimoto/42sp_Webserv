@@ -42,6 +42,7 @@ public:
 	std::string captureFieldValues(std::string& fieldLine);
 	void	validateHeader(void);
 	bool	validateContentLength(void);
+	bool	validateHost(void);
 	bool	findExtraRN(void);
 	std::string removeCRLF(std::string& fieldValue);
 };

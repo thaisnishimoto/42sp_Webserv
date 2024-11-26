@@ -269,12 +269,33 @@ bool Request::validateContentLength(void)
      return true;
 }
 
+bool Request::validateHost()
+{
+    if (_headerFields.count("host") != 1)
+    {
+        return false;
+    }
+    if (_headerFields["host"].find(",") != std::string::npos ||
+         _headerFields["host"].find(" ") != std::string::npos)
+    {
+        return false;
+    }
+    //TODO: Validate server_name max size
+    return true;
+}
+
+
 void Request::validateHeader(void)
 {
 	if (validateContentLength() == false)
     {
           _statusCode = BAD_REQUEST;
           return;
+    }
+    if (validateHost() == false)
+    {
+        _statusCode = BAD_REQUEST;
+        return;
     }
     if (findExtraRN() == true)
     {
