@@ -11,6 +11,7 @@ class WebServer
 	-vector<VirtualServer*> _virtualServers;
 	-map<int, VirtualServer*> _connections;
 	-std::map<int, std::string> _clientBuffers;
+	-std::map<int, Request> _requests;
 	--
 
 	+Webserver(void);
@@ -25,6 +26,22 @@ class WebServer
 	-preprocessRequest(int connectionFd);
 	-dispatchRequestHandling(int connectionFd);
 }
+
+note right of WebServer::preprocessRequest
+if there is no Request associated with connection fd in _requests then
+	create instance of Request and adds to _requests
+	call method to do initial parsing passing the request and _clientBuffer[fd] as reference
+else
+	recover Request object from _requests
+	if Request._parsedHeader is false
+		call method to do initial parsing, passing the request and _clientBuffers[fd] as reference
+end note
+
+note right of WebServer::dispatchRequestHandling
+based on request, identify virtualServer and add to _connections
+call virtualServer method that will parse the rest of the request
+most likely will receive reference to buffer and to partially filled request
+end note
 
 
 class VirtualServer
@@ -42,31 +59,18 @@ class VirtualServer
 	+int getServerFd(void);
 }
 
-class	Request
+class	"nRequest"
 {
-	-std::string _requestLine;
-	-std::map<std::string, std::string> _headerFields;
-	-static std::set<std::string> _otherMethods;
-	-static std::set<std::string> _implementedMethods;
-	-std::string _body;
+	+std::string _requestLine;
+	+std::map<std::string, std::string> _headerFields;
+	+std::string _body;
 
-	-std::string _method;
-	-std::string _requestTarget;
+	+std::string _method;
+	+std::string _requestTarget;
 
-	-STATUS_CODE _statusCode;
-
-    +static void initStaticMethods(void);
-    +void	parseRequest(std::string& buffer);
-	+void	parseRequestLine(std::string& buffer);
-	+void	parseMethod(std::string& requestLine);
-	+void	parseTarget(std::string& requestLine);
-	+void	parseVersion(std::string& requestLine);
-	+void	parseHeader(std::string& buffer);
-	+std::string captureFieldName(std::string& fieldLine);
-	+std::string captureFieldValues(std::string& fieldLine);
-	+void	validateHeader(void);
-	+bool	validateContentLength(void);
-	+bool	findExtraRN(void);
+	+bool _parsedRequestLine;
+	+bool _parsedHeader;
+	+bool _parsedBody;
 }
 
 package "namespace Utils"
