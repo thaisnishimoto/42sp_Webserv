@@ -1,0 +1,81 @@
+@startuml
+
+Title WebServ - Classes Overview
+
+WebServer o-- VirtualServer
+
+class WebServer
+{
+	-int _epollFd;
+	-std::set<uint16_t> _ports;
+	-vector<VirtualServer*> _virtualServers;
+	-map<int, VirtualServer*> _connections;
+	-std::map<int, std::string> _clientBuffers;
+	--
+
+	+Webserver(void);
+	+\~Webserver(void);
+	+void init(void);
+	+void run(void);
+
+	-void setUpSockets(std::set<uint16_t> ports);
+	-int acceptConnection(int epollFd);
+
+	..Not yet sure..
+	-preprocessRequest(int connectionFd);
+	-dispatchRequestHandling(int connectionFd);
+}
+
+
+class VirtualServer
+{
+	-int _port;
+	-int _serverFd;
+	-std::string _name;
+	-std::string _root;
+	'allowed methods
+	'other things
+
+	+VirtualServer(int port);
+	+\~VirtualServer(void);
+	+void processRequest(int connectionFd);
+	+int getServerFd(void);
+}
+
+class	Request
+{
+	-std::string _requestLine;
+	-std::map<std::string, std::string> _headerFields;
+	-static std::set<std::string> _otherMethods;
+	-static std::set<std::string> _implementedMethods;
+	-std::string _body;
+
+	-std::string _method;
+	-std::string _requestTarget;
+
+	-STATUS_CODE _statusCode;
+
+    +static void initStaticMethods(void);
+    +void	parseRequest(std::string& buffer);
+	+void	parseRequestLine(std::string& buffer);
+	+void	parseMethod(std::string& requestLine);
+	+void	parseTarget(std::string& requestLine);
+	+void	parseVersion(std::string& requestLine);
+	+void	parseHeader(std::string& buffer);
+	+std::string captureFieldName(std::string& fieldLine);
+	+std::string captureFieldValues(std::string& fieldLine);
+	+void	validateHeader(void);
+	+bool	validateContentLength(void);
+	+bool	findExtraRN(void);
+}
+
+package "namespace Utils"
+{
+	object functions{
+		str::string& trim(std::string& str);
+		std::string getNextLineRN(std::string& buffer);
+		std::string removeCRLF(std::string& fieldValue);
+	}
+}
+
+@enduml

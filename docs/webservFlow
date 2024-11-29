@@ -1,0 +1,38 @@
+@startuml
+
+|WebServer|
+start
+:read config file & check syntax;
+:set up epoll instance;
+:setup sockets & add to epoll instance;
+:instantiate virtualServers;
+:initiate infinite loop with epoll_wait;
+while(true) is (iterate through all flagged fds)
+	if (fd is one of the sockets?) then (yes)
+		:establish connection &\nadd new fd to epoll instance;
+	else if (header is not fully parsed) then (yes)
+		if (this connection Request is instantiated?) then (yes)
+			:continue to parse header;
+			note: recv called here
+		else
+			:instantiate Request object & track it;
+		endif
+	else
+		:dispatch request to virtualServer;
+		|virtualServer|
+			:parseBody;
+			note: recv called here
+			:construct response;
+			:signal WebServer that response is ready to be sent;
+			stop
+		|WebServer|
+	endif
+	if (is there a response be sent?) then (yes)
+		:send response;
+		note: send called here
+	else
+	endif
+endwhile
+end
+
+@enduml
