@@ -18,7 +18,7 @@ private:
 	std::map<int, std::string> _clientBuffers;
 
 public:
-	VirtualServer(int port);
+	VirtualServer(int port, std::string name);
 	~VirtualServer(void);
 	int acceptConnection(int epollFd);
 	void processRequest(int connectionFd);

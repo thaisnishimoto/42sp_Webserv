@@ -1,22 +1,6 @@
 #include "Request.hpp"
 #include "utils.hpp"
 
-std::set<std::string> Request::_implementedMethods;
-std::set<std::string> Request::_otherMethods;
-
-void Request::initStaticMethods()
-{
-    Request::_implementedMethods.insert("GET");
-    Request::_implementedMethods.insert("POST");
-    Request::_implementedMethods.insert("DELETE");
-
-    Request::_otherMethods.insert("HEAD");
-    Request::_otherMethods.insert("PUT");
-    Request::_otherMethods.insert("CONNECT");
-    Request::_otherMethods.insert("OPTIONS");
-    Request::_otherMethods.insert("TRACE");
-}
-
 void Request::parseRequest(std::string& buffer)
 {
     std::cout << "---------------------------------" << std::endl;

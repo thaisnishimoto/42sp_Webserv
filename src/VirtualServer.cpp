@@ -21,22 +21,22 @@ int VirtualServer::getServerFd(void)
 	return _serverFd;
 }
 
-void VirtualServer::setUpSocket(void)
-{
-	_serverFd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
-	if (_serverFd == -1)
-	{
-		std::cerr << std::strerror(errno) << std::endl;
-		throw std::runtime_error("Virtual Server Error: could not create socket");
-	}
-	//TODO - check for error and how to deal with it.
-	int opt = 1;
-    if (setsockopt(_serverFd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1)
-	{
-		std::cerr << std::strerror(errno) << std::endl;
-		throw std::runtime_error("Virtual Server Error: Could not set socket option");
-	};
-}
+// void VirtualServer::setUpSocket(void)
+// {
+// 	_serverFd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
+// 	if (_serverFd == -1)
+// 	{
+// 		std::cerr << std::strerror(errno) << std::endl;
+// 		throw std::runtime_error("Virtual Server Error: could not create socket");
+// 	}
+// 	//TODO - check for error and how to deal with it.
+// 	int opt = 1;
+//     if (setsockopt(_serverFd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1)
+// 	{
+// 		std::cerr << std::strerror(errno) << std::endl;
+// 		throw std::runtime_error("Virtual Server Error: Could not set socket option");
+// 	};
+// }
 
 void VirtualServer::bindSocket(void)
 {

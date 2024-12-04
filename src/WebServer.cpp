@@ -3,7 +3,19 @@
 
 WebServer::WebServer(void)
 {
-    Request::initStaticMethods();
+    _implementedMethods.insert("GET");
+    _implementedMethods.insert("POST");
+    _implementedMethods.insert("DELETE");
+
+    _unimplementedMethods.insert("HEAD");
+    _unimplementedMethods.insert("PUT");
+    _unimplementedMethods.insert("CONNECT");
+    _unimplementedMethods.insert("OPTIONS");
+    _unimplementedMethods.insert("TRACE");
+
+	//hard coded ports
+	_ports.insert(8081);
+	_ports.insert(8082);
 }
 
 WebServer::~WebServer(void)
@@ -43,6 +55,31 @@ void WebServer::init(void)
 		{
 			throw std::runtime_error("Server Error: Could not add fd to epoll instance");
 		}
+	}
+}
+
+void WebServer::setUpSockets(std::set<uint16_t> ports)
+{
+	std::set<uint16_t>::iterator it = ports.begin();
+	std::set<uint16_t>::iterator ite = ports.end();
+	
+	while (it != ite)
+	{
+		int sockFd;
+		sockFd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
+		if (sockFd == -1)
+		{
+			std::cerr << std::strerror(errno) << std::endl;
+			throw std::runtime_error("Virtual Server Error: could not create socket");
+		}
+		int opt = 1;
+    	if (setsockopt(_serverFd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1)
+		{
+			std::cerr << std::strerror(errno) << std::endl;
+			throw std::runtime_error("Virtual Server Error: Could not set socket option");
+		};
+		_socketToPorts[sockFd] = *it;
+		it++;
 	}
 }
 

@@ -20,7 +20,8 @@ class WebServer
 {
 private:
 	int _epollFd;
-	//std::set<uint16_t> _ports;
+	std::set<uint16_t> _ports;
+	std::map<int, uint16_t> _socketToPorts;
 	std::vector<VirtualServer> _virtualServers;
 	std::map<int, std::string> _connectionBuffers;
 	std::map<int, Request> _requestMap;
@@ -28,14 +29,17 @@ private:
 	std::map<int, VirtualServer&> _targetVirtualServers;
 
 	//provisory
-	static std::set<std::string> _otherMethods;
-	static std::set<std::string> _implementedMethods;
+	std::set<std::string> _implementedMethods;
+	std::set<std::string> _unimplementedMethods;
+
 
 public:
 	WebServer(void);
 	~WebServer(void);
-	void run(void);
 	void init(void);
+	void run(void);
+
+	void setUpSockets(std::set<uint16_t> ports);
 };
 
 #endif //_WERBSERVER_HPP_
