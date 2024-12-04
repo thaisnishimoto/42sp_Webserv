@@ -7,44 +7,44 @@
 #include <set>
 #include <sstream>
 
-typedef enum
-{
-	OK = 200,
-	BAD_REQUEST = 400,
-	METHOD_NOT_IMPLEMENTED = 501
-} STATUS_CODE;
+// typedef enum
+// {
+// 	OK = 200,
+// 	BAD_REQUEST = 400,
+// 	METHOD_NOT_IMPLEMENTED = 501
+// } STATUS_CODE;
 
 class	Request
 {
-private:
+public:
 	std::string _requestLine;
 	std::map<std::string, std::string> _headerFields;
-	static std::set<std::string> _otherMethods;
-	static std::set<std::string> _implementedMethods;
 	std::string _body;
 
 	std::string _method;
 	std::string _requestTarget;
 
-	STATUS_CODE _statusCode;
+	bool parsedRequestLine;
+	bool parsedHeader;
+	bool parsedBody;
 
-public:
-    static void initStaticMethods(void);
-    void	parseRequest(std::string& buffer);
-	void	parseRequestLine(std::string& buffer);
-	void	parseMethod(std::string& requestLine);
-	void	parseTarget(std::string& requestLine);
-	void	parseVersion(std::string& requestLine);
-	void	parseHeader(std::string& buffer);
-	std::string getNextLineRN(std::string& buffer);
-	std::string& trim(std::string& str, const std::string delim);
-	std::string captureFieldName(std::string& fieldLine);
-	std::string captureFieldValues(std::string& fieldLine);
-	void	validateHeader(void);
-	bool	validateContentLength(void);
-	bool	validateHost(void);
-	bool	findExtraRN(void);
-	std::string removeCRLF(std::string& fieldValue);
+// public:
+//     static void initStaticMethods(void);
+//     void	parseRequest(std::string& buffer);
+// 	void	parseRequestLine(std::string& buffer);
+// 	void	parseMethod(std::string& requestLine);
+// 	void	parseTarget(std::string& requestLine);
+// 	void	parseVersion(std::string& requestLine);
+// 	void	parseHeader(std::string& buffer);
+// 	std::string getNextLineRN(std::string& buffer);
+// 	std::string& trim(std::string& str, const std::string delim);
+// 	std::string captureFieldName(std::string& fieldLine);
+// 	std::string captureFieldValues(std::string& fieldLine);
+// 	void	validateHeader(void);
+// 	bool	validateContentLength(void);
+// 	bool	validateHost(void);
+// 	bool	findExtraRN(void);
+// 	std::string removeCRLF(std::string& fieldValue);
 };
 
 #endif

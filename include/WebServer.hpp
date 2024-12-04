@@ -5,6 +5,7 @@
 
 #include "VirtualServer.hpp"
 #include "Request.hpp"
+#include "Response.hpp"
 
 #include <stdexcept>
 #include <vector>
@@ -18,10 +19,17 @@
 class WebServer
 {
 private:
-	std::vector<VirtualServer*> _virtualServers;
 	int _epollFd;
-	std::map<int, VirtualServer*> _listeners;
-	std::map<int, VirtualServer*> _connections;
+	//std::set<uint16_t> _ports;
+	std::vector<VirtualServer> _virtualServers;
+	std::map<int, std::string> _connectionBuffers;
+	std::map<int, Request> _requestMap;
+	std::map<int, Response> _requestResponse;
+	std::map<int, VirtualServer&> _targetVirtualServers;
+
+	//provisory
+	static std::set<std::string> _otherMethods;
+	static std::set<std::string> _implementedMethods;
 
 public:
 	WebServer(void);
