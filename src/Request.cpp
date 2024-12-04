@@ -1,6 +1,16 @@
 #include "Request.hpp"
 #include "utils.hpp"
 
+Request::Request(void)
+{
+	parsedMethod = false;
+	parsedRequestLine = false;
+	parsedHeader = false;
+	parsedBody = false;
+	badRequest = false;
+	continueParsing = true;
+}
+
 void Request::parseRequest(std::string& buffer)
 {
     std::cout << "---------------------------------" << std::endl;

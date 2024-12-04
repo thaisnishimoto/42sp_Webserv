@@ -1,4 +1,5 @@
 #include "WebServer.hpp"
+#include "utils.hpp"
 #include <fcntl.h>
 
 WebServer::WebServer(void)
@@ -172,7 +173,7 @@ void WebServer::run(void)
 				{
 					Request request;
 					_requestMap[eventFd] = request;
-					initialParsing(_connectionBuffers[eventFd], request);
+					initialParsing(eventFd, _connectionBuffers[eventFd], request);
 				}
 				// else if (_requestMap.count(eventFd) == 1 && nao totalmente parseado)
 				// {
@@ -189,9 +190,105 @@ void WebServer::run(void)
 	}
 }
 
-void WebServer::initialParsing(std::string& buffer, Request& request)
+void WebServer::initialParsing(int connectionFd, std::string& connectionBuffer, Request& request)
 {
+	consumeNetworkBuffer(connectionFd, connectionBuffer);
 
+	if (request.parsedRequestLine == false)
+	{
+		parseRequestLine(connectionBuffer, request);
+	}
+}
+
+void WebServer::parseRequestLine(std::string& connectionBuffer, Request& request)
+{
+	std::string requestLine;
+    requestLine = getNextLineRN(connectionBuffer);
+
+    if (requestLine.size() == 2)
+    {
+        requestLine = getNextLineRN(connectionBuffer);
+    }
+	if (requestLine.empty() == true)
+	{
+		return;
+	}
+    std::cout << "request line: " << requestLine << std::endl;
+    std::string requestLineCpy = requestLine;
+    parseMethod(requestLineCpy, request);
+    if (request.continueParsing == false)
+        return;
+    parseTarget(requestLineCpy, request);
+    if (request.continueParsing == false)
+        return;
+    parseVersion(requestLineCpy, request);
+}
+
+void WebServer::parseVersion(std::string& requestLine, Request& request)
+{
+    if (requestLine != "HTTP/1.1\r\n")
+    {
+        request.badRequest = true;
+		request.continueParsing = true;
+    }
+}
+
+void WebServer::parseTarget(std::string& requestLine, Request& request)
+{
+	std::string requestTarget = requestLine.substr(0, requestLine.find(" "));
+    std::cout << "request target: " << requestTarget << std::endl;
+    if (requestTarget.size() == 0)
+    {
+        request.badRequest = true;
+		request.continueParsing = false;
+    }
+	request.target = requestTarget;
+    requestLine = requestLine.substr(requestTarget.size() + 1, std::string::npos);
+    std::cout << "Remainder of request line: " << "'" << requestLine << "'" << std::endl;
+}
+
+void WebServer::parseMethod(std::string& requestLine, Request& request)
+{
+	std::string method;
+    method = requestLine.substr(0, requestLine.find(" "));
+    std::cout << "method: " << method << std::endl;
+    if (_implementedMethods.count(method) == 1 ||
+		_unimplementedMethods.count(method) == 1)
+    {
+		request.method = method;
+        request.parsedMethod = true;
+    }
+    else
+    {
+        request.badRequest = true;
+		request.continueParsing = false;
+    }
+
+    requestLine = requestLine.substr(method.size() + 1, std::string::npos);
+    std::cout << "Remainder of request line: " << "'" << requestLine << "'" << std::endl;
+    //next method will need to verify if number of whitespaces are adequate
+}
+
+int WebServer::consumeNetworkBuffer(int connectionFd, std::string& connectionBuffer)
+{
+	char tempBuffer[5];
+
+	ssize_t bytesRead = recv(connectionFd, tempBuffer, sizeof(tempBuffer), 0);
+
+	if (bytesRead > 0)
+	{
+		connectionBuffer.append(tempBuffer, bytesRead);
+		return 0;
+	}
+	else
+	{
+		std::cout << "Connection closed by the client" << std::endl;
+		connectionBuffer.clear();
+		_connectionBuffers.erase(connectionFd);
+    	epoll_ctl(_epollFd, EPOLL_CTL_DEL, connectionFd, NULL);
+		close(connectionFd);
+		return 1;
+	}
 }
 
 int WebServer::acceptConnection(int epollFd, int eventFd)

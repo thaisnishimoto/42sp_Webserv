@@ -48,7 +48,12 @@ public:
 	int acceptConnection(int epollFd, int eventFd);
 	void setNonBlocking(int fd);
 
-	void initialParsing(std::string& buffer, Request& request);
+	void initialParsing(int connectionFd, std::string& connectionBuffer, Request& request);
+	void parseRequestLine(std::string& connectionBuffer, Request& request);
+	void parseMethod(std::string& requestLine, Request& request);
+	void parseTarget(std::string& requestLine, Request& request);
+	void parseVersion(std::string& requestLine, Request& request);
+	int consumeNetworkBuffer(int connectionFd, std::string& connectionBuffer);
 };
 
 #endif //_WERBSERVER_HPP_

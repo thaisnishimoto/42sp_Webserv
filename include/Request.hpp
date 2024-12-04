@@ -17,16 +17,23 @@
 class	Request
 {
 public:
-	std::string _requestLine;
-	std::map<std::string, std::string> _headerFields;
-	std::string _body;
+	std::string requestLine;
+	std::map<std::string, std::string> headerFields;
+	std::string body;
 
-	std::string _method;
-	std::string _requestTarget;
+	std::string method;
+	std::string target;
 
+	bool parsedMethod;
 	bool parsedRequestLine;
 	bool parsedHeader;
 	bool parsedBody;
+
+	bool badRequest;
+	
+	bool continueParsing;
+
+	Request(void);
 
 // public:
 //     static void initStaticMethods(void);
