@@ -175,6 +175,11 @@ void WebServer::run(void)
 					_requestMap[eventFd] = request;
 					initialParsing(eventFd, _connectionBuffers[eventFd], request);
 				}
+				else if (_requestMap.find(eventFd)->second.continueParsing == true)
+				{
+					Request request = _requestMap.find(eventFd)->second;
+					initialParsing(eventFd, _connectionBuffers[eventFd], request);
+				}
 				// else if (_requestMap.count(eventFd) == 1 && nao totalmente parseado)
 				// {
 				// 	continuar parseamento;
@@ -222,6 +227,9 @@ void WebServer::parseRequestLine(std::string& connectionBuffer, Request& request
     if (request.continueParsing == false)
         return;
     parseVersion(requestLineCpy, request);
+
+	//updatebuffer
+	connectionBuffer = connectionBuffer.substr(requestLine.size() + 1);
 }
 
 void WebServer::parseVersion(std::string& requestLine, Request& request)

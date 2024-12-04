@@ -20,15 +20,8 @@ public:
 	std::string _name;
 
 // public:
- 	int acceptConnection(int epollFd);
-// 	void processRequest(int connectionFd);
-// 	int getServerFd(void);
-// 	void setUpSocket(void);
-// 	void bindSocket(void);
-// 	void startListening(void);
-// 	void setNonBlocking(int fd);
-	// Response handleRequest(Request& request);
-
+// void processRequest(int connectionFd);
+// Response handleRequest(Request& request);
 };
 
 #endif //_VIRTUALSERVER_HPP_

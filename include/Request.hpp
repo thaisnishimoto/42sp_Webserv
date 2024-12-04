@@ -38,10 +38,6 @@ public:
 // public:
 //     static void initStaticMethods(void);
     void	parseRequest(std::string& buffer);
-	void	parseRequestLine(std::string& buffer);
-	void	parseMethod(std::string& requestLine);
-	void	parseTarget(std::string& requestLine);
-	void	parseVersion(std::string& requestLine);
 	void	parseHeader(std::string& buffer);
 	std::string captureFieldName(std::string& fieldLine);
 	std::string captureFieldValues(std::string& fieldLine);
