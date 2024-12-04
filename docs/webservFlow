@@ -2,35 +2,45 @@
 
 |WebServer|
 start
-:read config file & check syntax;
+:read config file && check syntax;
 :set up epoll instance;
-:setup sockets & add to epoll instance;
+:setup sockets && add to epoll instance;
 :instantiate virtualServers;
 :initiate infinite loop with epoll_wait;
 while(true) is (iterate through all flagged fds)
-	if (fd is one of the sockets?) then (yes)
-		:establish connection &\nadd new fd to epoll instance;
-	else if (header is not fully parsed) then (yes)
-		if (this connection Request is instantiated?) then (yes)
-			:continue to parse header;
-			note: recv called here
-		else
-			:instantiate Request object & track it;
+	if (fd is one of the sockets && EPOLLIN?) then (yes)
+		:establish connection;
+		:add new fd to epoll instance EPOLLIN;
+	(no) elseif (fd is connection && EPOLLIN?) then (yes)
+		if (is there a Request object assoaciated with this fd?) then (no)
+			:instantiate Request;
+			:add association between fd and Request object;
+			:begin parsing;
+		else (yes)
+			while (is fully parsed?) is (no)
+				:continue parsing;
+			endwhile
+			:mod fd in epoll instance to EPOLLOUT;
 		endif
-	else
-		:dispatch request to virtualServer;
-		|virtualServer|
-			:parseBody;
-			note: recv called here
-			:construct response;
-			:signal WebServer that response is ready to be sent;
-			stop
-		|WebServer|
-	endif
-	if (is there a response be sent?) then (yes)
-		:send response;
-		note: send called here
-	else
+	(no) elseif (fd is connection && EPOLLOUT?) then (yes)
+		if (is there a Response object associated with this fd?) then (no)
+			:based on Request associated with fd, instantiate Response object;
+			:add association between Response object and fd;
+			:begin filling member variables of Response;
+		else (yes)
+			while (is response fully formed?) is (no)
+				:continue filling object;
+			endwhile
+			:send response;
+			:delete element from requestMap;
+			:delete element from responseMap;
+			if (connection to be kept alive?) then (yes)
+				:mod fd in epoll instance to EPOLLIN;
+			else (no)
+				:close connection;
+				:delete fd from epoll instance;
+			endif
+		endif
 	endif
 endwhile
 end
