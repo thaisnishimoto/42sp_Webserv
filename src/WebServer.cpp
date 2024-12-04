@@ -38,6 +38,10 @@ void WebServer::init(void)
 		throw std::runtime_error("Server error: Could not create epoll instance");
 	}
 
+	setUpSockets(_ports);
+	bindSocket();
+	startListening();
+
 	_virtualServers.push_back(new VirtualServer(8081));
 	_virtualServers.push_back(new VirtualServer(8082));
 
@@ -78,7 +82,49 @@ void WebServer::setUpSockets(std::set<uint16_t> ports)
 			std::cerr << std::strerror(errno) << std::endl;
 			throw std::runtime_error("Virtual Server Error: Could not set socket option");
 		};
-		_socketToPorts[sockFd] = *it;
+		_portsToSockets[*it] = sockFd;
+		it++;
+	}
+}
+
+void WebServer::bindSocket(void)
+{
+	std::set<uint16_t>::iterator it = _ports.begin();
+	std::set<uint16_t>::iterator ite = _ports.end();
+	
+	while (it != ite)
+	{
+		int sockFd = _portsToSockets[*it];
+		struct sockaddr_in	server_address;
+		std::memset(&server_address, 0, sizeof(sockaddr_in));
+		server_address.sin_addr.s_addr = INADDR_ANY;
+		server_address.sin_family = AF_INET;
+		server_address.sin_port = htons(*it);
+
+		if (bind(sockFd, (struct sockaddr *)&server_address, sizeof(sockaddr_in)) == -1)
+		{
+			close(sockFd);
+			std::cerr << std::strerror(errno) << std::endl;
+			throw std::runtime_error("Virtual Server Error: could not bind socket");
+		};
+		it++;
+	}
+}
+
+void WebServer::startListening(void)
+{
+	std::set<uint16_t>::iterator it = _ports.begin();
+	std::set<uint16_t>::iterator ite = _ports.end();
+	
+	while (it != ite)
+	{
+		int sockFd = _portsToSockets[*it];
+		if (listen(sockFd, 10) == -1)
+		{
+			close(sockFd);
+			std::cerr << std::strerror(errno) << std::endl;
+			throw std::runtime_error("Virtual Server Error: could not activate listening");
+		};
 		it++;
 	}
 }
