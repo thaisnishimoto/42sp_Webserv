@@ -3,23 +3,20 @@
 #include <fcntl.h>
 #include <sys/socket.h>
 
-VirtualServer::VirtualServer(int port): _port(port)
+VirtualServer::VirtualServer(int port, std::string name): _port(port), _name(name)
 {
-	setUpSocket();
-	bindSocket();
-	startListening();
 }
 
 VirtualServer::~VirtualServer(void)
 {
 	std::cout << "Virtual Server destructor called" << std::endl;
-	close(_serverFd);
+	// close(_serverFd);
 }
 
-int VirtualServer::getServerFd(void)
-{
-	return _serverFd;
-}
+// int VirtualServer::getServerFd(void)
+// {
+// 	return _serverFd;
+// }
 
 // void VirtualServer::setUpSocket(void)
 // {

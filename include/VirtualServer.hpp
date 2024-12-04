@@ -12,21 +12,21 @@
 
 class VirtualServer
 {
-private:
-	int _port; //maybe change to unsigned short int?
-	int _serverFd;
-	std::map<int, std::string> _clientBuffers;
-
 public:
 	VirtualServer(int port, std::string name);
 	~VirtualServer(void);
-	int acceptConnection(int epollFd);
-	void processRequest(int connectionFd);
-	int getServerFd(void);
-	void setUpSocket(void);
-	void bindSocket(void);
-	void startListening(void);
-	void setNonBlocking(int fd);
+
+	uint16_t _port;
+	std::string _name;
+
+// public:
+ 	int acceptConnection(int epollFd);
+// 	void processRequest(int connectionFd);
+// 	int getServerFd(void);
+// 	void setUpSocket(void);
+// 	void bindSocket(void);
+// 	void startListening(void);
+// 	void setNonBlocking(int fd);
 	// Response handleRequest(Request& request);
 
 };

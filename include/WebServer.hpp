@@ -21,7 +21,7 @@ class WebServer
 private:
 	int _epollFd;
 	std::set<uint16_t> _ports;
-	std::map<uint16_t, int> _portsToSockets;
+	std::map<int, uint16_t> _socketsToPorts;
 	std::vector<VirtualServer> _virtualServers;
 	std::map<int, std::string> _connectionBuffers;
 	std::map<int, Request> _requestMap;
@@ -42,6 +42,11 @@ public:
 	void setUpSockets(std::set<uint16_t> ports);
 	void bindSocket(void);
 	void startListening(void);
+
+	void addSocketsToEpoll(void);
+
+	int acceptConnection(int epollFd, int eventFd);
+	void setNonBlocking(int fd);
 };
 
 #endif //_WERBSERVER_HPP_
