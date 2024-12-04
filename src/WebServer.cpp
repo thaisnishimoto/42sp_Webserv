@@ -166,14 +166,32 @@ void WebServer::run(void)
 				    std::cerr << "Accept connection failed" << std::endl;
 				}
 			}
-			else if (_connections.count(eventFd) == 1 &&
-				(_eventsList[i].events & EPOLLIN) == EPOLLIN)
+			else if ((_eventsList[i].events & EPOLLIN) == EPOLLIN)
 			{
-				VirtualServer* ptr = _connections[eventFd];
-				ptr->processRequest(eventFd);
+				if (_requestMap.count(eventFd) == 0)
+				{
+					Request request;
+					_requestMap[eventFd] = request;
+					initialParsing(_connectionBuffers[eventFd], request);
+				}
+				// else if (_requestMap.count(eventFd) == 1 && nao totalmente parseado)
+				// {
+				// 	continuar parseamento;
+				// }
+				// VirtualServer* ptr = _connections[eventFd];
+				// ptr->processRequest(eventFd);
+			}
+			else if ((_eventsList[i].events & EPOLLOUT) == EPOLLOUT)
+			{
+				//codigo para response
 			}
 		}
 	}
+}
+
+void WebServer::initialParsing(std::string& buffer, Request& request)
+{
+
 }
 
 int WebServer::acceptConnection(int epollFd, int eventFd)

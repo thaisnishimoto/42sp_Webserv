@@ -30,21 +30,19 @@ public:
 
 // public:
 //     static void initStaticMethods(void);
-//     void	parseRequest(std::string& buffer);
-// 	void	parseRequestLine(std::string& buffer);
-// 	void	parseMethod(std::string& requestLine);
-// 	void	parseTarget(std::string& requestLine);
-// 	void	parseVersion(std::string& requestLine);
-// 	void	parseHeader(std::string& buffer);
-// 	std::string getNextLineRN(std::string& buffer);
-// 	std::string& trim(std::string& str, const std::string delim);
-// 	std::string captureFieldName(std::string& fieldLine);
-// 	std::string captureFieldValues(std::string& fieldLine);
-// 	void	validateHeader(void);
-// 	bool	validateContentLength(void);
-// 	bool	validateHost(void);
-// 	bool	findExtraRN(void);
-// 	std::string removeCRLF(std::string& fieldValue);
+    void	parseRequest(std::string& buffer);
+	void	parseRequestLine(std::string& buffer);
+	void	parseMethod(std::string& requestLine);
+	void	parseTarget(std::string& requestLine);
+	void	parseVersion(std::string& requestLine);
+	void	parseHeader(std::string& buffer);
+	std::string captureFieldName(std::string& fieldLine);
+	std::string captureFieldValues(std::string& fieldLine);
+	void	validateHeader(void);
+	bool	validateContentLength(void);
+	bool	validateHost(void);
+	bool	findExtraRN(void);
+	std::string removeCRLF(std::string& fieldValue);
 };
 
 #endif
