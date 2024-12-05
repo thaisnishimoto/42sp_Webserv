@@ -238,6 +238,18 @@ void WebServer::initialParsing(int connectionFd, std::string& connectionBuffer, 
 	{
 		parseHeader(connectionBuffer, request);
 	}
+	if (request.parsedHeader == true)
+	{
+		 std::map<std::string, std::string>::iterator it, ite;
+		 it = request.headerFields.begin();
+		 ite = request.headerFields.end();
+		 while (it != ite)
+		 {
+			 std::cout << "key: " << it->first << " | value: " << it->second << std::endl;
+			 ++it;
+		 }
+		 std::cout << "---------------------------------" << std::endl;
+	}
 }
 
 void WebServer::parseRequestLine(std::string& connectionBuffer, Request& request)
@@ -265,9 +277,6 @@ void WebServer::parseRequestLine(std::string& connectionBuffer, Request& request
 	if (request.continueParsing == false)
 		return;
 	request.parsedRequestLine = true;
-
-	//updatebuffer
-	connectionBuffer = connectionBuffer.substr(requestLine.size() + 1);
 }
 
 void WebServer::parseVersion(std::string& requestLine, Request& request)
@@ -339,13 +348,17 @@ void WebServer::parseHeader(std::string& connectionBuffer, Request& request)
 		tolower(fieldName);
         std::pair<std::string, std::string> tmp(fieldName, fieldValues);
         std::pair<std::map<std::string, std::string>::iterator, bool> insertCheck;
-        insertCheck = _headerFields.insert(tmp);
+        insertCheck = request.headerFields.insert(tmp);
         if (insertCheck.second == false)
         {
-            _headerFields[fieldName] = _headerFields[fieldName] + ", " + fieldValues;
+            request.headerFields[fieldName] = request.headerFields[fieldName] + ", " + fieldValues;
         }
-        fieldLine = getNextLineRN(buffer);
+        fieldLine = getNextLineRN(connectionBuffer);
     }
+	if (fieldLine == "\r\n")
+	{
+		request.parsedHeader = true;
+	}
 }
 
 std::string WebServer::captureFieldName(std::string& fieldLine)
@@ -365,6 +378,36 @@ std::string WebServer::captureFieldName(std::string& fieldLine)
     }
 
     return fieldName;
+}
+std::string WebServer::captureFieldValues(std::string& fieldLine)
+{
+    size_t colonPos = fieldLine.find(":");
+
+    std::string fieldLineTail;
+    fieldLineTail = fieldLine.substr(colonPos + 1, std::string::npos);
+    std::cout << "FieldLine Tail: " << fieldLineTail << std::endl;
+
+    std::string fieldValues;
+    while (true)
+    {
+        size_t commaPos = fieldLineTail.find(",");
+        if (commaPos == std::string::npos)
+        {
+            // NOTE: removing \r\n from field line
+            fieldValues += trim(fieldLineTail, " \t");
+            fieldValues = removeCRLF(fieldValues);
+            break;
+        }
+        std::string tmp;
+        tmp = fieldLineTail.substr(0, commaPos);
+        std::cout << "Pre trim tmp: " << tmp << std::endl;
+        tmp = trim(tmp, " \t") + ", ";
+        std::cout << "Post trim tmp: " << tmp << std::endl;
+        fieldValues += tmp;
+        fieldLineTail = fieldLineTail.substr(commaPos + 1, std::string::npos);
+        std::cout << "fieldLineTail: " << fieldLineTail << std::endl;
+    }
+	return fieldValues;
 }
 
 int WebServer::consumeNetworkBuffer(int connectionFd, std::string& connectionBuffer)

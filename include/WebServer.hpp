@@ -11,6 +11,7 @@
 #include <vector>
 #include <sys/epoll.h>
 #include <map>
+#include <set>
 #include <cerrno>
 #include <cstdio>
 #include <stdexcept>
@@ -60,6 +61,7 @@ public:
 
 	void parseHeader(std::string& connectionBuffer, Request& request);
 	std::string captureFieldName(std::string& fieldLine);
+	std::string captureFieldValues(std::string& fieldLine);
 
 	void fillResponse(Response& response, Request& request);
 
