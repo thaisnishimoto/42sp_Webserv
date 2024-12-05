@@ -1,5 +1,4 @@
 #include "Request.hpp"
-#include "utils.hpp"
 
 Request::Request(void)
 {

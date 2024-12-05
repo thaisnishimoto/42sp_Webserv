@@ -1,18 +1,8 @@
 #ifndef _REQUEST_HPP_
 #define _REQUEST_HPP_
 
-#include <iostream>
 #include <string>
 #include <map>
-#include <set>
-#include <sstream>
-
-// typedef enum
-// {
-// 	OK = 200,
-// 	BAD_REQUEST = 400,
-// 	METHOD_NOT_IMPLEMENTED = 501
-// } STATUS_CODE;
 
 class	Request
 {
