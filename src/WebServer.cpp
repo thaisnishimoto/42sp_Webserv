@@ -1,6 +1,7 @@
 #include "WebServer.hpp"
 #include "utils.hpp"
 #include <fcntl.h>
+#include <sys/socket.h>
 
 WebServer::WebServer(void)
 {
@@ -209,16 +210,19 @@ void WebServer::run(void)
 			{
 				if (_responseMap.count(eventFd) == 0)
 				{
-					Response response;
-					_responseMap[eventFd] = response;
+					Response& response = _responseMap[eventFd];
 					fillResponse(response, _requestMap[eventFd]);
 					if (response.isReady == true)
 					{
 						std::string tmp;
 						tmp = "HTTP/1.1 " + response.statusCode + " " + response.reasonPhrase + "\r\n\r\n";
 
-						send(eventFd, tmp.c_str(), tmp.size(), 0);
-						std::cout << errno << std::endl;
+						int bytesSent;
+						std::cout << "Will call send now" << std::endl;
+						bytesSent = send(eventFd, tmp.c_str(), tmp.size(), 0);
+						std::cout << "Sent " << bytesSent << "bytes" << std::endl;
+						// shutdown(eventFd, SHUT_RDWR);
+						// std::cout << errno << std::endl;
 						// send(eventFd, "HTTP/1.1 400 Bad Request\r\n\r\n", 30, 0);
 
 						epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL); 
@@ -241,6 +245,7 @@ void WebServer::fillResponse(Response& response, Request& request)
 	{
 		response.statusCode = "400";
 		response.reasonPhrase = "Bad Request";
+		response.isReady = true;
 	}
 }
 
