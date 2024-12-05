@@ -13,6 +13,8 @@ public:
 
 	std::string statusCode;
 	std::string reasonPhrase;
+
+	bool isReady;
 };
 
 #endif //_RESPONSE_HPP_

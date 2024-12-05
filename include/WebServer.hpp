@@ -25,7 +25,7 @@ private:
 	std::vector<VirtualServer> _virtualServers;
 	std::map<int, std::string> _connectionBuffers;
 	std::map<int, Request> _requestMap;
-	std::map<int, Response> _requestResponse;
+	std::map<int, Response> _responseMap;
 	std::map<int, VirtualServer&> _targetVirtualServers;
 
 	//provisory
@@ -53,6 +53,9 @@ public:
 	void parseMethod(std::string& requestLine, Request& request);
 	void parseTarget(std::string& requestLine, Request& request);
 	void parseVersion(std::string& requestLine, Request& request);
+
+	void fillResponse(Response& response, Request& request);
+
 	int consumeNetworkBuffer(int connectionFd, std::string& connectionBuffer);
 };
 

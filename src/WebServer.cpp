@@ -207,9 +207,38 @@ void WebServer::run(void)
 			}
 			else if ((_eventsList[i].events & EPOLLOUT) == EPOLLOUT)
 			{
+				if (_responseMap.count(eventFd) == 0)
+				{
+					Response response;
+					_responseMap[eventFd] = response;
+					fillResponse(response, _requestMap[eventFd]);
+					if (response.isReady == true)
+					{
+						std::string tmp;
+						tmp = "HTTP/1.1 " + response.statusCode + " " + response.reasonPhrase + "\r\n";
+
+						send(eventFd, tmp.c_str(), sizeof(tmp.c_str()), 0);
+
+						epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL); 
+						_requestMap.erase(eventFd);
+						_responseMap.erase(eventFd);
+						_connectionBuffers[eventFd].clear();
+						_connectionBuffers.erase(eventFd);
+						close(eventFd);
+					}
+				}
 				//codigo para response
 			}
 		}
+	}
+}
+
+void WebServer::fillResponse(Response& response, Request& request)
+{
+	if (request.badRequest == true)
+	{
+		response.statusCode = "400";
+		response.reasonPhrase = "Bad Request";
 	}
 }
 
