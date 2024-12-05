@@ -11,26 +11,28 @@ while(true) is (iterate through all flagged fds)
 	if (fd is one of the sockets && EPOLLIN?) then (yes)
 		:establish connection;
 		:add new fd to epoll instance EPOLLIN;
+		:associate a buffer to connection fd;
 	(no) elseif (fd is connection && EPOLLIN?) then (yes)
 		if (is there a Request object assoaciated with this fd?) then (no)
 			:instantiate Request;
 			:add association between fd and Request object;
 			:begin parsing;
 		else (yes)
-			while (is fully parsed?) is (no)
-				:continue parsing;
-			endwhile
-			:mod fd in epoll instance to EPOLLOUT;
 		endif
+			while (is parsed enough?) is (no)
+				:continue parsing;
+			endwhile (yes)
+			:mod fd in epoll instance to EPOLLOUT;
 	(no) elseif (fd is connection && EPOLLOUT?) then (yes)
 		if (is there a Response object associated with this fd?) then (no)
 			:based on Request associated with fd, instantiate Response object;
 			:add association between Response object and fd;
 			:begin filling member variables of Response;
 		else (yes)
+		endif
 			while (is response fully formed?) is (no)
 				:continue filling object;
-			endwhile
+			endwhile (yes)
 			:send response;
 			:delete element from requestMap;
 			:delete element from responseMap;
@@ -39,7 +41,6 @@ while(true) is (iterate through all flagged fds)
 			else (no)
 				:close connection;
 				:delete fd from epoll instance;
-			endif
 		endif
 	endif
 endwhile

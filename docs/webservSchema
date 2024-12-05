@@ -9,11 +9,16 @@ WebServer *-- Response
 class WebServer
 {
 	-int _epollFd;
+
 	-std::set<uint16_t> _ports;
+	-std::map<int, uint16_t> _socketsToPorts;
+
 	-vector<VirtualServer> _virtualServers;
+
 	-std::map<int, std::string> _connectionBuffers;
 	-std::map<int, Request> _requestMap;
 	-std::map<int, Response> _responseMap;
+
 	-std::map<int, VirtualServer&> _targetVirtualServers;
 
 	--
@@ -23,31 +28,54 @@ class WebServer
 	+void init(void);
 	+void run(void);
 
-	-void setUpSockets(std::set<uint16_t> ports);
-	-int acceptConnection(int epollFd);
+	+void setUpSockets(std::set<uint16_t> ports);
+	+void bindSocket(void);
+	+void startListening(void);
+
+	+void addSocketsToEpoll(void);
+
+	+int acceptConnection(int epollFd, int eventFd);
+	+void setNonBlocking(int fd);
+
+	+void initialParsing(int connectionFd, std::string& connectionBuffer, Request& request);
+	+void parseRequestLine(std::string& connectionBuffer, Request& request);
+	+void parseMethod(std::string& requestLine, Request& request);
+	+void parseTarget(std::string& requestLine, Request& request);
+	+void parseVersion(std::string& requestLine, Request& request);
+	+int consumeNetworkBuffer(int connectionFd, std::string& connectionBuffer);
 }
+
+note "Possibly could be static function" as N1
+N1  .. WebServer::parseMethod
+N1  .. WebServer::parseTarget
+N1  .. WebServer::parseVersion
 
 class VirtualServer
 {
-	+std::string _name;
-	+std::string _root;
-	+bool isDefault;
-	+allowed_methods;
-	other things...
+	+uint16_t port;
+	+std::string name;
+
+	+VirtualServer(int port, std::string name);
+	+\~VirtualServer(void);
 }
 
 class	Request
 {
-	+std::string _requestLine;
-	+std::map<std::string, std::string> _headerFields;
-	+std::string _body;
+	+std::string method;
+	+std::string target;
+	+std::map<std::string, std::string> headerFields;
+	+std::string body;
 
-	+std::string _method;
-	+std::string _requestTarget;
+	+bool parsedMethod;
+	+bool parsedRequestLine;
+	+bool parsedHeader;
+	+bool parsedBody;
 
-	+bool _parsedRequestLine;
-	+bool _parsedHeader;
-	+bool _parsedBody;
+	+bool badRequest;
+
+	+bool continueParsing;
+
+	+Request(void);
 }
 
 class	Response
@@ -66,6 +94,7 @@ package "namespace Utils"
 		str::string& trim(std::string& str);
 		std::string getNextLineRN(std::string& buffer);
 		std::string removeCRLF(std::string& fieldValue);
+		void tolower(std::string &str);
 	}
 }
 

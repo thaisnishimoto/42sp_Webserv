@@ -203,6 +203,10 @@ void WebServer::initialParsing(int connectionFd, std::string& connectionBuffer, 
 	{
 		parseRequestLine(connectionBuffer, request);
 	}
+	// else if (request.parsedHeader == false && request.continueParsing == true)
+	// {
+	// 	parseHeader(connectionBuffer, request);
+	// }
 }
 
 void WebServer::parseRequestLine(std::string& connectionBuffer, Request& request)
