@@ -53,8 +53,8 @@ void WebServer::init(void)
 
 void WebServer::addSocketsToEpoll(void)
 {
-	std::map<uint16_t, int>::iterator it = _portsToSockets.begin();
-	std::map<uint16_t, int>::iterator ite = _portsToSockets.end();
+	std::map<int, uint16_t>::iterator it = _socketsToPorts.begin();
+	std::map<int, uint16_t>::iterator ite = _socketsToPorts.end();
 
 	while (it != ite)
 	{
@@ -174,11 +174,29 @@ void WebServer::run(void)
 					Request request;
 					_requestMap[eventFd] = request;
 					initialParsing(eventFd, _connectionBuffers[eventFd], request);
+					//transform into a function
+					if (request.continueParsing == false)
+					{
+						struct epoll_event target_event;
+						std::memset(&target_event, 0, sizeof(target_event));
+						target_event.events = EPOLLOUT;
+						target_event.data.fd = eventFd;
+						epoll_ctl(_epollFd, EPOLL_CTL_MOD, eventFd, &target_event); 
+					}
 				}
 				else if (_requestMap.find(eventFd)->second.continueParsing == true)
 				{
 					Request request = _requestMap.find(eventFd)->second;
 					initialParsing(eventFd, _connectionBuffers[eventFd], request);
+					//transform into a function
+					if (request.continueParsing == false)
+					{
+						struct epoll_event target_event;
+						std::memset(&target_event, 0, sizeof(target_event));
+						target_event.events = EPOLLOUT;
+						target_event.data.fd = eventFd;
+						epoll_ctl(_epollFd, EPOLL_CTL_MOD, eventFd, &target_event); 
+					}
 				}
 				// else if (_requestMap.count(eventFd) == 1 && nao totalmente parseado)
 				// {
