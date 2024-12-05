@@ -238,6 +238,10 @@ void WebServer::initialParsing(int connectionFd, std::string& connectionBuffer, 
 	{
 		parseHeader(connectionBuffer, request);
 	}
+	if (request.parsedHeader == true && request.continueParsing == true)
+	{
+		validateHeader(request);
+	}
 	if (request.parsedHeader == true)
 	{
 		 std::map<std::string, std::string>::iterator it, ite;
@@ -409,6 +413,49 @@ std::string WebServer::captureFieldValues(std::string& fieldLine)
     }
 	return fieldValues;
 }
+
+static bool validateContentLength(Request& request)
+{
+     if (request.headerFields.count("content-length") == 0)
+	 {
+     	return true;
+     }
+     if (request.headerFields["content-length"].find(",") != std::string::npos ||
+         request.headerFields["content-length"].find(" ") != std::string::npos)
+     {
+     	return  false;
+     }
+     std::istringstream ss(request.headerFields["content-length"]);
+     long long value;
+     ss >> value;
+     if (ss.fail() || !ss.eof() || ss.bad() || value < 0)
+     {
+       return false;
+     }
+     return true;
+}
+
+void WebServer::validateHeader(Request& request)
+{
+	if (validateContentLength(request) == false)
+    {
+		request.badRequest = true;
+		request.continueParsing = false;
+        return;
+    }
+    // if (validateHost() == false)
+    // {
+    //     _statusCode = BAD_REQUEST;
+    //     return;
+    // }
+    // if (findExtraRN() == true)
+    // {
+    //     _statusCode = BAD_REQUEST;
+    //     return;
+    // }
+}
+
+
 
 int WebServer::consumeNetworkBuffer(int connectionFd, std::string& connectionBuffer)
 {
