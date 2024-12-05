@@ -1,0 +1,5 @@
+verbose
+url = localhost:8081
+request = GET
+header = "Host: qualquer "
+header = "Teste: valor de teste"
