@@ -451,6 +451,23 @@ static bool validateHost(Request& request)
     return true;
 }
 
+static bool findExtraRN(Request& request)
+{
+    std::map<std::string, std::string>::iterator it, ite;
+    it = request.headerFields.begin();
+    ite = request.headerFields.end();
+    while (it != ite)
+    {
+        if ((it->first.find('\r') != std::string::npos || it->first.find('\n') != std::string::npos) ||
+            (it->second.find('\n') != std::string::npos || it->second.find('\r') != std::string::npos))
+        {
+            return true;
+        }
+        ++it;
+    }
+    return false;
+}
+
 void WebServer::validateHeader(Request& request)
 {
 	if (validateContentLength(request) == false)
@@ -465,11 +482,13 @@ void WebServer::validateHeader(Request& request)
 		request.continueParsing = false;
         return;
     }
-    // if (findExtraRN() == true)
-    // {
-    //     _statusCode = BAD_REQUEST;
-    //     return;
-    // }
+	//need to see more about extras RN
+    if (findExtraRN(request) == true)
+    {
+    	request.badRequest = true;
+		request.continueParsing = false;
+        return;
+    }
 }
 
 
