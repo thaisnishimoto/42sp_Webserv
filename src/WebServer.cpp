@@ -170,41 +170,17 @@ void WebServer::run(void)
 			}
 			else if ((_eventsList[i].events & EPOLLIN) == EPOLLIN)
 			{
-				if (_requestMap.count(eventFd) == 0)
+				Request& request = _requestMap[eventFd];
+				initialParsing(eventFd, _connectionBuffers[eventFd], request);
+				//transform into a function
+				if (request.continueParsing == false)
 				{
-					Request& request = _requestMap[eventFd];
-					// _requestMap[eventFd] = request;
-					initialParsing(eventFd, _connectionBuffers[eventFd], request);
-					//transform into a function
-					if (request.continueParsing == false)
-					{
-						struct epoll_event target_event;
-						std::memset(&target_event, 0, sizeof(target_event));
-						target_event.events = EPOLLOUT;
-						target_event.data.fd = eventFd;
-						epoll_ctl(_epollFd, EPOLL_CTL_MOD, eventFd, &target_event); 
-					}
+					struct epoll_event target_event;
+					std::memset(&target_event, 0, sizeof(target_event));
+					target_event.events = EPOLLOUT;
+					target_event.data.fd = eventFd;
+					epoll_ctl(_epollFd, EPOLL_CTL_MOD, eventFd, &target_event);
 				}
-				else if (_requestMap.find(eventFd)->second.continueParsing == true)
-				{
-					Request& request = _requestMap.find(eventFd)->second;
-					initialParsing(eventFd, _connectionBuffers[eventFd], request);
-					//transform into a function
-					if (request.continueParsing == false)
-					{
-						struct epoll_event target_event;
-						std::memset(&target_event, 0, sizeof(target_event));
-						target_event.events = EPOLLOUT;
-						target_event.data.fd = eventFd;
-						epoll_ctl(_epollFd, EPOLL_CTL_MOD, eventFd, &target_event); 
-					}
-				}
-				// else if (_requestMap.count(eventFd) == 1 && nao totalmente parseado)
-				// {
-				// 	continuar parseamento;
-				// }
-				// VirtualServer* ptr = _connections[eventFd];
-				// ptr->processRequest(eventFd);
 			}
 			else if ((_eventsList[i].events & EPOLLOUT) == EPOLLOUT)
 			{
