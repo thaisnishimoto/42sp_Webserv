@@ -26,7 +26,7 @@ private:
 	std::map<int, std::string> _connectionBuffers;
 	std::map<int, Request> _requestMap;
 	std::map<int, Response> _responseMap;
-	std::map<int, VirtualServer&> _targetVirtualServers;
+	std::map<int, VirtualServer*> _targetVirtualServers;
 
 	//provisory
 	std::set<std::string> _implementedMethods;

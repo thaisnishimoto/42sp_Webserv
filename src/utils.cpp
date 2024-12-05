@@ -9,7 +9,7 @@ void    tolower(std::string& str)
     }
 }
 
-std::string Request::getNextLineRN(std::string& buffer)
+std::string getNextLineRN(std::string& buffer)
 {
     std::string line;
 
@@ -23,7 +23,7 @@ std::string Request::getNextLineRN(std::string& buffer)
     return line;
 }
 
-std::string& Request::trim(std::string& str, const std::string delim)
+std::string& trim(std::string& str, const std::string delim)
 {
     // Find the first non-delim character
     size_t start = str.find_first_not_of(delim);
@@ -42,7 +42,7 @@ std::string& Request::trim(std::string& str, const std::string delim)
     return str;
 }
 
-std::string Request::removeCRLF(std::string& fieldValue)
+std::string removeCRLF(std::string& fieldValue)
 {
     size_t posCRLF = fieldValue.find("\r\n");
     if (posCRLF != std::string::npos)

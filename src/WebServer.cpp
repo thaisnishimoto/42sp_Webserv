@@ -21,14 +21,14 @@ WebServer::WebServer(void)
 
 WebServer::~WebServer(void)
 {
-	for (size_t i = 0; i < _virtualServers.size(); ++i)
-	{
-		delete _virtualServers[i];
-	}
-	if (_epollFd > 2)
-	{
-		close(_epollFd);
-	}
+	// for (size_t i = 0; i < _virtualServers.size(); ++i)
+	// {
+	// 	delete _virtualServers[i];
+	// }
+	// if (_epollFd > 2)
+	// {
+	// 	close(_epollFd);
+	// }
 }
 
 void WebServer::init(void)
@@ -58,7 +58,7 @@ void WebServer::addSocketsToEpoll(void)
 
 	while (it != ite)
 	{
-		int sockFd = it->second;
+		int sockFd = it->first;
 		struct epoll_event target_event;
 		std::memset(&target_event, 0, sizeof(target_event));
 		target_event.events = EPOLLIN;
@@ -171,8 +171,8 @@ void WebServer::run(void)
 			{
 				if (_requestMap.count(eventFd) == 0)
 				{
-					Request request;
-					_requestMap[eventFd] = request;
+					Request& request = _requestMap[eventFd];
+					// _requestMap[eventFd] = request;
 					initialParsing(eventFd, _connectionBuffers[eventFd], request);
 					//transform into a function
 					if (request.continueParsing == false)
@@ -186,7 +186,7 @@ void WebServer::run(void)
 				}
 				else if (_requestMap.find(eventFd)->second.continueParsing == true)
 				{
-					Request request = _requestMap.find(eventFd)->second;
+					Request& request = _requestMap.find(eventFd)->second;
 					initialParsing(eventFd, _connectionBuffers[eventFd], request);
 					//transform into a function
 					if (request.continueParsing == false)
@@ -215,9 +215,11 @@ void WebServer::run(void)
 					if (response.isReady == true)
 					{
 						std::string tmp;
-						tmp = "HTTP/1.1 " + response.statusCode + " " + response.reasonPhrase + "\r\n";
+						tmp = "HTTP/1.1 " + response.statusCode + " " + response.reasonPhrase + "\r\n\r\n";
 
-						send(eventFd, tmp.c_str(), sizeof(tmp.c_str()), 0);
+						send(eventFd, tmp.c_str(), tmp.size(), 0);
+						std::cout << errno << std::endl;
+						// send(eventFd, "HTTP/1.1 400 Bad Request\r\n\r\n", 30, 0);
 
 						epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL); 
 						_requestMap.erase(eventFd);
