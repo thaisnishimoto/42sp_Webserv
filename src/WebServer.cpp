@@ -234,10 +234,10 @@ void WebServer::initialParsing(int connectionFd, std::string& connectionBuffer, 
 	{
 		parseRequestLine(connectionBuffer, request);
 	}
-	// else if (request.parsedHeader == false && request.continueParsing == true)
-	// {
-	// 	parseHeader(connectionBuffer, request);
-	// }
+	if (request.parsedRequestLine == true && request.parsedHeader == false && request.continueParsing == true)
+	{
+		parseHeader(connectionBuffer, request);
+	}
 }
 
 void WebServer::parseRequestLine(std::string& connectionBuffer, Request& request)
@@ -262,6 +262,9 @@ void WebServer::parseRequestLine(std::string& connectionBuffer, Request& request
     if (request.continueParsing == false)
         return;
     parseVersion(requestLineCpy, request);
+	if (request.continueParsing == false)
+		return;
+	request.parsedRequestLine = true;
 
 	//updatebuffer
 	connectionBuffer = connectionBuffer.substr(requestLine.size() + 1);
@@ -272,7 +275,7 @@ void WebServer::parseVersion(std::string& requestLine, Request& request)
     if (requestLine != "HTTP/1.1\r\n")
     {
         request.badRequest = true;
-		request.continueParsing = true;
+		request.continueParsing = false;
     }
 }
 
@@ -310,6 +313,58 @@ void WebServer::parseMethod(std::string& requestLine, Request& request)
     requestLine = requestLine.substr(method.size() + 1, std::string::npos);
     std::cout << "Remainder of request line: " << "'" << requestLine << "'" << std::endl;
     //next method will need to verify if number of whitespaces are adequate
+}
+
+void WebServer::parseHeader(std::string& connectionBuffer, Request& request)
+{
+    std::cout << "inside parseHeader" << std::endl;
+    std::cout << "buffer: " << connectionBuffer << std::endl;
+    std::string fieldLine = getNextLineRN(connectionBuffer);
+
+    while (fieldLine.empty() == false && fieldLine != "\r\n")
+    {
+        std::string fieldName = captureFieldName(fieldLine);
+        if (fieldName.empty() == true)
+        {
+			request.badRequest = true;
+        	request.continueParsing = false;
+            return;
+        }
+
+        std::string fieldValues = captureFieldValues(fieldLine);
+
+        std::cout << "Field-name: " << fieldName << std::endl;
+        std::cout << "Field-value: " << fieldValues << std::endl;
+
+		tolower(fieldName);
+        std::pair<std::string, std::string> tmp(fieldName, fieldValues);
+        std::pair<std::map<std::string, std::string>::iterator, bool> insertCheck;
+        insertCheck = _headerFields.insert(tmp);
+        if (insertCheck.second == false)
+        {
+            _headerFields[fieldName] = _headerFields[fieldName] + ", " + fieldValues;
+        }
+        fieldLine = getNextLineRN(buffer);
+    }
+}
+
+std::string WebServer::captureFieldName(std::string& fieldLine)
+{
+    size_t colonPos = fieldLine.find(":");
+
+    if (colonPos == std::string::npos)
+    {
+        return "";
+    }
+
+    std::string fieldName;
+    fieldName = fieldLine.substr(0, colonPos);
+    if (fieldName.find(" ") != std::string::npos)
+    {
+        return "";
+    }
+
+    return fieldName;
 }
 
 int WebServer::consumeNetworkBuffer(int connectionFd, std::string& connectionBuffer)

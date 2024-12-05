@@ -58,6 +58,9 @@ public:
 	void parseTarget(std::string& requestLine, Request& request);
 	void parseVersion(std::string& requestLine, Request& request);
 
+	void parseHeader(std::string& connectionBuffer, Request& request);
+	std::string captureFieldName(std::string& fieldLine);
+
 	void fillResponse(Response& response, Request& request);
 
 	int consumeNetworkBuffer(int connectionFd, std::string& connectionBuffer);
