@@ -254,6 +254,7 @@ void WebServer::initialParsing(int connectionFd, std::string& connectionBuffer, 
 		 }
 		 std::cout << "---------------------------------" << std::endl;
 	}
+	std::cout << "bad request= " << request.badRequest << std::endl;
 }
 
 void WebServer::parseRequestLine(std::string& connectionBuffer, Request& request)
@@ -398,8 +399,8 @@ std::string WebServer::captureFieldValues(std::string& fieldLine)
         if (commaPos == std::string::npos)
         {
             // NOTE: removing \r\n from field line
+            fieldLineTail = removeCRLF(fieldLineTail);
             fieldValues += trim(fieldLineTail, " \t");
-            fieldValues = removeCRLF(fieldValues);
             break;
         }
         std::string tmp;
@@ -435,6 +436,21 @@ static bool validateContentLength(Request& request)
      return true;
 }
 
+static bool validateHost(Request& request)
+{
+    if (request.headerFields.count("host") != 1)
+    {
+        return false;
+    }
+    if (request.headerFields["host"].find(",") != std::string::npos ||
+         request.headerFields["host"].find(" ") != std::string::npos)
+    {
+        return false;
+    }
+    //TODO: Validate server_name max size
+    return true;
+}
+
 void WebServer::validateHeader(Request& request)
 {
 	if (validateContentLength(request) == false)
@@ -443,11 +459,12 @@ void WebServer::validateHeader(Request& request)
 		request.continueParsing = false;
         return;
     }
-    // if (validateHost() == false)
-    // {
-    //     _statusCode = BAD_REQUEST;
-    //     return;
-    // }
+    if (validateHost(request) == false)
+    {
+    	request.badRequest = true;
+		request.continueParsing = false;
+        return;
+    }
     // if (findExtraRN() == true)
     // {
     //     _statusCode = BAD_REQUEST;
