@@ -44,6 +44,7 @@ public:
 	void startListening(void);
 
 	void addSocketsToEpoll(void);
+	void modifyEventInterest(int epollFd, int eventFd, uint32_t event);
 
 	int acceptConnection(int epollFd, int eventFd);
 	void setNonBlocking(int fd);

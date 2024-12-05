@@ -172,14 +172,9 @@ void WebServer::run(void)
 			{
 				Request& request = _requestMap[eventFd];
 				initialParsing(eventFd, _connectionBuffers[eventFd], request);
-				//transform into a function
 				if (request.continueParsing == false)
 				{
-					struct epoll_event target_event;
-					std::memset(&target_event, 0, sizeof(target_event));
-					target_event.events = EPOLLOUT;
-					target_event.data.fd = eventFd;
-					epoll_ctl(_epollFd, EPOLL_CTL_MOD, eventFd, &target_event);
+					modifyEventInterest(_epollFd, eventFd, EPOLLOUT);
 				}
 			}
 			else if ((_eventsList[i].events & EPOLLOUT) == EPOLLOUT)
@@ -213,6 +208,15 @@ void WebServer::run(void)
 			}
 		}
 	}
+}
+
+void WebServer::modifyEventInterest(int epollFd, int eventFd, uint32_t event)
+{
+	struct epoll_event target_event;
+	std::memset(&target_event, 0, sizeof(target_event));
+	target_event.events = event;
+	target_event.data.fd = eventFd;
+	epoll_ctl(epollFd, EPOLL_CTL_MOD, eventFd, &target_event);
 }
 
 void WebServer::fillResponse(Response& response, Request& request)
