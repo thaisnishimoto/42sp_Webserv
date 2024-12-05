@@ -192,9 +192,6 @@ void WebServer::run(void)
 						std::cout << "Will call send now" << std::endl;
 						bytesSent = send(eventFd, tmp.c_str(), tmp.size(), 0);
 						std::cout << "Sent " << bytesSent << "bytes" << std::endl;
-						// shutdown(eventFd, SHUT_RDWR);
-						// std::cout << errno << std::endl;
-						// send(eventFd, "HTTP/1.1 400 Bad Request\r\n\r\n", 30, 0);
 
 						epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL); 
 						_requestMap.erase(eventFd);

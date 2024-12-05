@@ -15,6 +15,9 @@
 #include <cstdio>
 #include <stdexcept>
 #include <fcntl.h>
+#include <cstring>
+#include <unistd.h>
+#include <errno.h>
 
 class WebServer
 {
