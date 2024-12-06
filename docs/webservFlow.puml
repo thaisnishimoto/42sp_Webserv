@@ -1,6 +1,5 @@
 @startuml
 
-|WebServer|
 start
 :read config file && check syntax;
 :set up epoll instance;
@@ -16,23 +15,25 @@ while(true) is (iterate through all flagged fds)
 		if (is there a Request object assoaciated with this fd?) then (no)
 			:instantiate Request;
 			:add association between fd and Request object;
-			:begin parsing;
 		else (yes)
 		endif
+			group Parsing
 			while (is parsed enough?) is (no)
 				:continue parsing;
 			endwhile (yes)
+			end group
 			:mod fd in epoll instance to EPOLLOUT;
 	(no) elseif (fd is connection && EPOLLOUT?) then (yes)
 		if (is there a Response object associated with this fd?) then (no)
 			:based on Request associated with fd, instantiate Response object;
 			:add association between Response object and fd;
-			:begin filling member variables of Response;
 		else (yes)
 		endif
+			group Constructing Response
 			while (is response fully formed?) is (no)
 				:continue filling object;
 			endwhile (yes)
+			end group
 			:send response;
 			:delete element from requestMap;
 			:delete element from responseMap;
