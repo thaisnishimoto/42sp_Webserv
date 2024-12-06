@@ -33,6 +33,7 @@ class WebServer
 	+void startListening(void);
 
 	+void addSocketsToEpoll(void);
+	+void modifyEventInterest(int epollFd, int eventFd, uint32_t event);
 
 	+int acceptConnection(int epollFd, int eventFd);
 	+void setNonBlocking(int fd);
@@ -42,6 +43,14 @@ class WebServer
 	+void parseMethod(std::string& requestLine, Request& request);
 	+void parseTarget(std::string& requestLine, Request& request);
 	+void parseVersion(std::string& requestLine, Request& request);
+
+	+void parseHeader(std::string& connectionBuffer, Request& request);
+	+std::string captureFieldName(std::string& fieldLine);
+	+std::string captureFieldValues(std::string& fieldLine);
+	+void validateHeader(Request& request);
+
+	+void fillResponse(Response& response, Request& request);
+
 	+int consumeNetworkBuffer(int connectionFd, std::string& connectionBuffer);
 }
 
