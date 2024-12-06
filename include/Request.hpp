@@ -7,12 +7,10 @@
 class	Request
 {
 public:
-	std::string requestLine;
-	std::map<std::string, std::string> headerFields;
-	std::string body;
-
 	std::string method;
 	std::string target;
+	std::map<std::string, std::string> headerFields;
+	std::string body;
 
 	bool parsedMethod;
 	bool parsedRequestLine;
