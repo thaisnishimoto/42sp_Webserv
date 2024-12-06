@@ -89,12 +89,12 @@ class	Request
 
 class	Response
 {
-	+std::string _statusLine;
-	+std::map<std::string, std::string> _headerFields;
-	+std::string _body;
+	+std::string statusLine;
+	+std::map<std::string, std::string> headerFields;
+	+std::string body;
 
-	+std::string _status;
-	+std::string _reasonPhrase;
+	+std::string status;
+	+std::string reasonPhrase;
 }
 
 package "namespace Utils"
