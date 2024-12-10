@@ -1,4 +1,5 @@
 @startuml
+!pragma layout smetana
 
 start
 :read config file && check syntax;
@@ -10,38 +11,29 @@ while(true) is (iterate through all flagged fds)
 	if (fd is one of the sockets && EPOLLIN?) then (yes)
 		:establish connection;
 		:add new fd to epoll instance EPOLLIN;
-		:associate a buffer to connection fd;
+		:instantiate new Connection object;
+		:associate connection fd to Connection object;
 	(no) elseif (fd is connection && EPOLLIN?) then (yes)
-		if (is there a Request object assoaciated with this fd?) then (no)
-			:instantiate Request;
-			:add association between fd and Request object;
-		else (yes)
-		endif
-			group Parsing
-			while (is parsed enough?) is (no)
-				:continue parsing;
-			endwhile (yes)
-			end group
-			:mod fd in epoll instance to EPOLLOUT;
+		group Parsing
+		while (is parsed enough?) is (no)
+			:continue parsing;
+		endwhile (yes)
+		end group
+		:mod fd in epoll instance to EPOLLOUT;
 	(no) elseif (fd is connection && EPOLLOUT?) then (yes)
-		if (is there a Response object associated with this fd?) then (no)
-			:based on Request associated with fd, instantiate Response object;
-			:add association between Response object and fd;
-		else (yes)
-		endif
-			group Constructing Response
-			while (is response fully formed?) is (no)
-				:continue filling object;
-			endwhile (yes)
-			end group
-			:send response;
-			:delete element from requestMap;
-			:delete element from responseMap;
-			if (connection to be kept alive?) then (yes)
-				:mod fd in epoll instance to EPOLLIN;
-			else (no)
-				:close connection;
-				:delete fd from epoll instance;
+		group Constructing Response
+		while (is response fully formed?) is (no)
+			:continue filling object;
+		endwhile (yes)
+		end group
+		:send response;
+		if (connection to be kept alive?) then (yes)
+			:reset Request & Response in Connection object;
+			:mod fd in epoll instance to EPOLLIN;
+		else (no)
+			:close connection;
+			:destroy Connection object;
+			:delete fd from epoll instance;
 		endif
 	endif
 endwhile

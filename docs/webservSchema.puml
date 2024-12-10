@@ -1,10 +1,12 @@
 @startuml
+!pragma layout smetana
 
 Title WebServ - Classes Overview
 
-WebServer *-- VirtualServer
-WebServer *-- Request
-WebServer *-- Response
+WebServer *-- Connection
+Connection *-- Request
+Connection *-- Response
+Connection *-- VirtualServer
 
 class WebServer
 {
@@ -15,12 +17,7 @@ class WebServer
 
 	-vector<VirtualServer> _virtualServers;
 
-	-std::map<int, std::string> _connectionBuffers;
-	-std::map<int, Request> _requestMap;
-	-std::map<int, Response> _responseMap;
-
-	-std::map<int, VirtualServer&> _targetVirtualServers;
-
+	-std::map<int, Connection> _connectionMap;
 	--
 
 	+Webserver(void);
@@ -95,6 +92,15 @@ class	Response
 
 	+std::string status;
 	+std::string reasonPhrase;
+}
+
+class Connection
+{
+	+int connectionFd;
+	+uint16_t port;
+	+std::string buffer;
+	+Request request;
+	+Response response;
 }
 
 package "namespace Utils"
