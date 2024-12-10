@@ -1,14 +1,6 @@
 @startuml
 !pragma layout smetana
 
-json "<b>_virtualServers</b>" as virtualServers {
-["VirtualServer1", "VirtualServer2", "VirtualServer3"]
-}
-
-json "<b>_defaultVirtualServers</b>" as defaultVirtualServers {
-["VirtualServer1", "VirtualServer3"]
-}
-
 json "<b>Sockets</b>" as sockets {
 ["fd4", "fd5"]
 }
@@ -21,26 +13,41 @@ json "Flagged fds (from epoll_wait)" as fds {
 ["fd6", "fd7", "fd8"]
 }
 
-json "<b>Requests</b>" as requests {
-["Request6", "Request7", "Request8"]
+json "Connection" as connections {
+	"Host" : "localhost",
+	"Port" : 8081,
+	"ConnectionFd" : 6,
+	"Request" : "request",
+	"Response" : "response",
+	"Buffer" : "buffer",
+	"VirtualServer" : "&virtualServer"
 }
 
-json "<b>Responses</b>" as responses {
-["Reponse6", "Response7", "Response8"]
+map "std::map<name, virtualServer&>" as map2 {
+	um server => 0x01
+	outro server => 0x02
 }
 
-json "<b>Buffers</b>" as buffer {
-["buffer6", "buffer7", "buffer8"]
+map "std::map<name, virtualServer&>" as map3 {
+	outro server => 0x03
 }
 
-sockets --> ports : _socketsToPorts
-fds --> requests : _requestMap
-requests -[#red]-> fds : _requestToConnection
-fds --> responses : _responseMap
-fds --> buffer : _connectionBuffers
-fds -[#red]-> ports : _connectionToPorts
-ports -[#red]-> virtualServers : _portsToVirtualServers
-ports -[#red]-> defaultVirtualServers : _portsToDefaultVirtualServers
+map "<b>Default VirtualServers</b>\nstd::map<port, virtualServer&>" as defaultVirtualServers {
+	8081 => 0x02
+	80802 => 0x3
+}
+
+map "<b>VirtualServer lookup table</b>\nstd::map<pair<host, port>, map<name, virtualServer&>>" as vsLookupTable {
+	localhost, 8081 *-> map2
+	localhost, 8082 *--> map3
+}
+
+
+sockets "1" --> "1" ports
+ports "1" --> "many" connections
+fds "1" --> "1" connections : _connectionsMap
+connections --> vsLookupTable
+connections --> defaultVirtualServers : in case lookup fails
 
 
 @enduml
