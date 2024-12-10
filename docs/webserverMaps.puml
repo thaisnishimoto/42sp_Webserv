@@ -5,6 +5,10 @@ json "<b>_virtualServers</b>" as virtualServers {
 ["VirtualServer1", "VirtualServer2", "VirtualServer3"]
 }
 
+json "<b>_defaultVirtualServers</b>" as defaultVirtualServers {
+["VirtualServer1", "VirtualServer3"]
+}
+
 json "<b>Sockets</b>" as sockets {
 ["fd4", "fd5"]
 }
@@ -29,12 +33,14 @@ json "<b>Buffers</b>" as buffer {
 ["buffer6", "buffer7", "buffer8"]
 }
 
-sockets <--> ports : _socketsToPorts
-
-fds <--> requests : _requestMap
-fds <--> responses : _responseMap
-fds <--> buffer : _connectionBuffers
-requests --> virtualServers : how?
+sockets --> ports : _socketsToPorts
+fds --> requests : _requestMap
+requests -[#red]-> fds : _requestToConnection
+fds --> responses : _responseMap
+fds --> buffer : _connectionBuffers
+fds -[#red]-> ports : _connectionToPorts
+ports -[#red]-> virtualServers : _portsToVirtualServers
+ports -[#red]-> defaultVirtualServers : _portsToDefaultVirtualServers
 
 
 @enduml
