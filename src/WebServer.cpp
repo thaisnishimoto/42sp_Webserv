@@ -257,6 +257,14 @@ void WebServer::initialParsing(int connectionFd, std::string& connectionBuffer, 
 	std::cout << "bad request= " << request.badRequest << std::endl;
 }
 
+static bool findExtraRN(const std::string& line)
+{
+	bool found = false;
+	if (line.find('\r') != std::string::npos || line.find('\n') != std::string::npos)
+		found = true;
+	return found;
+}
+
 void WebServer::parseRequestLine(std::string& connectionBuffer, Request& request)
 {
 	std::string requestLine;
@@ -297,7 +305,7 @@ void WebServer::parseTarget(std::string& requestLine, Request& request)
 {
 	std::string requestTarget = requestLine.substr(0, requestLine.find(" "));
     std::cout << "request target: " << requestTarget << std::endl;
-    if (requestTarget.size() == 0)
+    if (requestTarget.size() == 0 || findExtraRN(requestTarget) == true)
     {
         request.badRequest = true;
 		request.continueParsing = false;
@@ -451,15 +459,14 @@ static bool validateHost(Request& request)
     return true;
 }
 
-static bool findExtraRN(Request& request)
+static bool findRNFields(Request& request)
 {
     std::map<std::string, std::string>::iterator it, ite;
     it = request.headerFields.begin();
     ite = request.headerFields.end();
     while (it != ite)
     {
-        if ((it->first.find('\r') != std::string::npos || it->first.find('\n') != std::string::npos) ||
-            (it->second.find('\n') != std::string::npos || it->second.find('\r') != std::string::npos))
+        if (findExtraRN(it->first) || findExtraRN(it->second))
         {
             return true;
         }
@@ -483,7 +490,7 @@ void WebServer::validateHeader(Request& request)
         return;
     }
 	//need to see more about extras RN
-    if (findExtraRN(request) == true)
+    if (findRNFields(request) == true)
     {
     	request.badRequest = true;
 		request.continueParsing = false;
