@@ -1,0 +1,40 @@
+@startuml
+!pragma layout smetana
+
+json "<b>_virtualServers</b>" as virtualServers {
+["VirtualServer1", "VirtualServer2", "VirtualServer3"]
+}
+
+json "<b>Sockets</b>" as sockets {
+["fd4", "fd5"]
+}
+
+json "<b>Ports</b>" as ports {
+["8081", "8082"]
+}
+
+json "Flagged fds (from epoll_wait)" as fds {
+["fd6", "fd7", "fd8"]
+}
+
+json "<b>Requests</b>" as requests {
+["Request6", "Request7", "Request8"]
+}
+
+json "<b>Responses</b>" as responses {
+["Reponse6", "Response7", "Response8"]
+}
+
+json "<b>Buffers</b>" as buffer {
+["buffer6", "buffer7", "buffer8"]
+}
+
+sockets <--> ports : _socketsToPorts
+
+fds <--> requests : _requestMap
+fds <--> responses : _responseMap
+fds <--> buffer : _connectionBuffers
+requests --> virtualServers : how?
+
+
+@enduml
