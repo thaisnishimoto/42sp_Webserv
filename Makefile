@@ -18,6 +18,7 @@ SRC_FILES = main.cpp \
 			WebServer \
 			VirtualServer \
 			Request \
+			Connection \
 			utils
 
 #test files

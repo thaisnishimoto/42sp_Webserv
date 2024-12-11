@@ -13,10 +13,14 @@ class Connection
 public:
 	int connectionFd;
 	uint16_t port;
+	uint32_t host;
 	std::string buffer;
 	Request request;
 	Response response;
 	VirtualServer* virtualServer;
+
+	Connection(void);
+	Connection(int fd);
 };
 
 #endif //_CONNECTION_HPP_

@@ -167,39 +167,37 @@ void WebServer::run(void)
 				    //TODO: print to user log
 				    std::cerr << "Accept connection failed" << std::endl;
 				}
+				//instanciar Connection e adicionar ao map
+				// Connection connection = _connectionsMap[connectionFd];
+				Connection connection(connectionFd);
+				std::pair<int, Connection> pair(connectionFd, connection);
+				_connectionsMap.insert(pair);
 			}
 			else if ((_eventsList[i].events & EPOLLIN) == EPOLLIN)
 			{
-				Request& request = _requestMap[eventFd];
-				initialParsing(eventFd, _connectionBuffers[eventFd], request);
-				if (request.continueParsing == false)
+				Connection& connection = _connectionsMap[eventFd];
+				initialParsing(eventFd, connection.buffer, connection.request);
+				if (connection.request.continueParsing == false)
 				{
 					modifyEventInterest(_epollFd, eventFd, EPOLLOUT);
 				}
 			}
 			else if ((_eventsList[i].events & EPOLLOUT) == EPOLLOUT)
 			{
-				if (_responseMap.count(eventFd) == 0)
+				Connection& connection = _connectionsMap[eventFd];
+				fillResponse(connection.response, connection.request);
+				if (connection.response.isReady == true)
 				{
-					Response& response = _responseMap[eventFd];
-					fillResponse(response, _requestMap[eventFd]);
-					if (response.isReady == true)
-					{
-						std::string tmp;
-						tmp = "HTTP/1.1 " + response.statusCode + " " + response.reasonPhrase + "\r\n\r\n";
+					std::string tmp;
+					tmp = "HTTP/1.1 " + connection.response.statusCode + " " + connection.response.reasonPhrase + "\r\n\r\n";
 
-						int bytesSent;
-						std::cout << "Will call send now" << std::endl;
-						bytesSent = send(eventFd, tmp.c_str(), tmp.size(), 0);
-						std::cout << "Sent " << bytesSent << "bytes" << std::endl;
+					int bytesSent;
+					std::cout << "Will call send now" << std::endl;
+					bytesSent = send(eventFd, tmp.c_str(), tmp.size(), 0);
+					std::cout << "Sent " << bytesSent << "bytes" << std::endl;
 
-						epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL); 
-						_requestMap.erase(eventFd);
-						_responseMap.erase(eventFd);
-						_connectionBuffers[eventFd].clear();
-						_connectionBuffers.erase(eventFd);
-						close(eventFd);
-					}
+					epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL); 
+					close(eventFd);
 				}
 				//codigo para response
 			}
@@ -515,7 +513,7 @@ int WebServer::consumeNetworkBuffer(int connectionFd, std::string& connectionBuf
 	{
 		std::cout << "Connection closed by the client" << std::endl;
 		connectionBuffer.clear();
-		_connectionBuffers.erase(connectionFd);
+		// _connectionBuffers.erase(connectionFd);
     	epoll_ctl(_epollFd, EPOLL_CTL_DEL, connectionFd, NULL);
 		close(connectionFd);
 		return 1;
@@ -532,8 +530,6 @@ int WebServer::acceptConnection(int epollFd, int eventFd)
 	if (newFd != -1)
 	{
 	    setNonBlocking(newFd);
-    	std::pair<int, std::string>	pair(newFd, buffer);
-    	_connectionBuffers.insert(pair);
     	target_event.events = EPOLLIN;
     	target_event.data.fd = newFd;
     	epoll_ctl(epollFd, EPOLL_CTL_ADD, newFd, &target_event);
