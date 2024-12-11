@@ -9,8 +9,8 @@ class VirtualServer
 public:
 	VirtualServer(int port, std::string name);
 
-	uint16_t _port;
-	std::string _name;
+	uint16_t port;
+	std::string name;
 };
 
 #endif //_VIRTUALSERVER_HPP_
