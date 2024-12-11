@@ -199,12 +199,13 @@ void WebServer::run(void)
 			else if ((_eventsList[i].events & EPOLLOUT) == EPOLLOUT)
 			{
 				Connection& connection = _connectionsMap[eventFd];
-				fillResponse(connection.response, connection.request);
+				fillResponse(connection);
 				if (connection.response.isReady == true)
 				{
 					std::string tmp;
-					tmp = "HTTP/1.1 " + connection.response.statusCode + " " + connection.response.reasonPhrase + "\r\n\r\n";
-
+					tmp = "HTTP/1.1 " + connection.response.statusCode + " " + connection.response.reasonPhrase + "\r\n";
+					tmp += "origin: " + connection.response.headerFields["origin"] + "\r\n";
+					tmp += "\r\n";
 					int bytesSent;
 					std::cout << "Will call send now" << std::endl;
 					bytesSent = send(eventFd, tmp.c_str(), tmp.size(), 0);
@@ -228,14 +229,37 @@ void WebServer::modifyEventInterest(int epollFd, int eventFd, uint32_t event)
 	epoll_ctl(epollFd, EPOLL_CTL_MOD, eventFd, &target_event);
 }
 
-void WebServer::fillResponse(Response& response, Request& request)
+void WebServer::fillResponse(Connection& connection)
 {
+	Request& request = connection.request;
+	Response& response = connection.response;
 	if (request.badRequest == true)
 	{
 		response.statusCode = "400";
 		response.reasonPhrase = "Bad Request";
-		response.isReady = true;
 	}
+	else
+	{
+		response.statusCode = "200";
+		response.reasonPhrase = "OK";
+		std::pair<std::string, std::string> pair ("origin", connection.virtualServer->name);
+		response.headerFields.insert(pair);
+	}
+	response.isReady = true;
+}
+
+// WIP
+void WebServer::identifyVirtualServer(Connection& connection)
+{
+	std::pair<uint32_t, uint16_t> key(connection.host, connection.port);
+	std::map<std::pair<uint32_t, uint16_t>, std::map<std::string, VirtualServer*> >::iterator it = _vServersLookup.find(key);
+	if (it == _vServersLookup.end())
+	{
+		std::cout << "Not found vserver" << std::endl;
+		return;
+	}
+	std::map<std::string, VirtualServer*> tmp = it->second;
+	connection.virtualServer = tmp[connection.request.headerFields["host"]];
 }
 
 void WebServer::parseRequest(Connection& connection)
@@ -253,6 +277,7 @@ void WebServer::parseRequest(Connection& connection)
 	if (connection.request.parsedHeader == true && connection.request.continueParsing == true)
 	{
 		validateHeader(connection.request);
+		identifyVirtualServer(connection);
 	}
 	if (connection.request.parsedHeader == true)
 	{
@@ -265,6 +290,7 @@ void WebServer::parseRequest(Connection& connection)
 			 ++it;
 		 }
 		 std::cout << "---------------------------------" << std::endl;
+		connection.request.continueParsing = false;
 	}
 	std::cout << "bad request= " << connection.request.badRequest << std::endl;
 }

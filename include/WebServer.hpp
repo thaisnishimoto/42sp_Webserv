@@ -58,11 +58,12 @@ public:
 	void parseVersion(std::string& requestLine, Request& request);
 
 	void parseHeader(std::string& connectionBuffer, Request& request);
+	void identifyVirtualServer(Connection& connection);
 	std::string captureFieldName(std::string& fieldLine);
 	std::string captureFieldValues(std::string& fieldLine);
 	void validateHeader(Request& request);
 
-	void fillResponse(Response& response, Request& request);
+	void fillResponse(Connection& connection);
 
 	int consumeNetworkBuffer(int connectionFd, std::string& connectionBuffer);
 };
