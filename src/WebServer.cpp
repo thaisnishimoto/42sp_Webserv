@@ -34,6 +34,20 @@ WebServer::~WebServer(void)
 
 void WebServer::init(void)
 {
+	//hard coded as fuck
+	std::map<std::string, VirtualServer*> map1, map2;
+	_virtualServers.push_back(VirtualServer(8081, "Server1"));
+	_virtualServers.push_back(VirtualServer(8081, "Server2"));
+	_virtualServers.push_back(VirtualServer(8082, "Server3"));
+	map1.insert(std::pair<std::string, VirtualServer*>(_virtualServers[0].name, &_virtualServers[0]));
+	map1.insert(std::pair<std::string, VirtualServer*>(_virtualServers[1].name, &_virtualServers[1]));
+	map2.insert(std::pair<std::string, VirtualServer*>(_virtualServers[2].name, &_virtualServers[2]));
+
+	std::pair<uint32_t, uint16_t>	pair(0x7f000001, 8081);
+	_vServersLookup.insert(std::pair<std::pair<uint32_t, uint16_t>, std::map<std::string, VirtualServer*> >(pair, map1));
+	std::pair<uint32_t, uint16_t>	pair2(0x7f000001, 8082);
+	_vServersLookup.insert(std::pair<std::pair<uint32_t, uint16_t>, std::map<std::string, VirtualServer*> >(pair2, map2));
+
 	_epollFd = epoll_create(1);
 	if (_epollFd == -1)
 	{
@@ -45,11 +59,6 @@ void WebServer::init(void)
 	startListening();
 
 	addSocketsToEpoll();
-
-	//hard coded as fuck
-	_virtualServers.push_back(VirtualServer(8081, "Server1"));
-	_virtualServers.push_back(VirtualServer(8081, "Server2"));
-	_virtualServers.push_back(VirtualServer(8082, "Server3"));
 }
 
 void WebServer::addSocketsToEpoll(void)
@@ -167,16 +176,21 @@ void WebServer::run(void)
 				    //TODO: print to user log
 				    std::cerr << "Accept connection failed" << std::endl;
 				}
-				//instanciar Connection e adicionar ao map
-				// Connection connection = _connectionsMap[connectionFd];
 				Connection connection(connectionFd);
-				std::pair<int, Connection> pair(connectionFd, connection);
-				_connectionsMap.insert(pair);
+				if (connection.error == true)
+				{
+					epoll_ctl(_epollFd, EPOLL_CTL_DEL, connectionFd, NULL);
+				}
+				else
+				{
+					std::pair<int, Connection> pair(connectionFd, connection);
+					_connectionsMap.insert(pair);
+				}
 			}
 			else if ((_eventsList[i].events & EPOLLIN) == EPOLLIN)
 			{
 				Connection& connection = _connectionsMap[eventFd];
-				initialParsing(eventFd, connection.buffer, connection.request);
+				parseRequest(connection);
 				if (connection.request.continueParsing == false)
 				{
 					modifyEventInterest(_epollFd, eventFd, EPOLLOUT);
@@ -224,27 +238,27 @@ void WebServer::fillResponse(Response& response, Request& request)
 	}
 }
 
-void WebServer::initialParsing(int connectionFd, std::string& connectionBuffer, Request& request)
+void WebServer::parseRequest(Connection& connection)
 {
-	consumeNetworkBuffer(connectionFd, connectionBuffer);
+	consumeNetworkBuffer(connection.connectionFd, connection.buffer);
 
-	if (request.parsedRequestLine == false)
+	if (connection.request.parsedRequestLine == false)
 	{
-		parseRequestLine(connectionBuffer, request);
+		parseRequestLine(connection.buffer, connection.request);
 	}
-	if (request.parsedRequestLine == true && request.parsedHeader == false && request.continueParsing == true)
+	if (connection.request.parsedRequestLine == true && connection.request.parsedHeader == false && connection.request.continueParsing == true)
 	{
-		parseHeader(connectionBuffer, request);
+		parseHeader(connection.buffer, connection.request);
 	}
-	if (request.parsedHeader == true && request.continueParsing == true)
+	if (connection.request.parsedHeader == true && connection.request.continueParsing == true)
 	{
-		validateHeader(request);
+		validateHeader(connection.request);
 	}
-	if (request.parsedHeader == true)
+	if (connection.request.parsedHeader == true)
 	{
 		 std::map<std::string, std::string>::iterator it, ite;
-		 it = request.headerFields.begin();
-		 ite = request.headerFields.end();
+		 it = connection.request.headerFields.begin();
+		 ite = connection.request.headerFields.end();
 		 while (it != ite)
 		 {
 			 std::cout << "key: " << it->first << " | value: " << it->second << std::endl;
@@ -252,7 +266,7 @@ void WebServer::initialParsing(int connectionFd, std::string& connectionBuffer, 
 		 }
 		 std::cout << "---------------------------------" << std::endl;
 	}
-	std::cout << "bad request= " << request.badRequest << std::endl;
+	std::cout << "bad request= " << connection.request.badRequest << std::endl;
 }
 
 static bool findExtraRN(const std::string& line)

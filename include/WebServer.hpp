@@ -26,6 +26,7 @@ private:
 	std::set<uint16_t> _ports;
 	std::map<int, uint16_t> _socketsToPorts;
 	std::vector<VirtualServer> _virtualServers;
+	std::map<std::pair<uint32_t, uint16_t>, std::map<std::string, VirtualServer*> > _vServersLookup;
 
 	std::map<int, Connection> _connectionsMap;
 
@@ -50,7 +51,7 @@ public:
 	int acceptConnection(int epollFd, int eventFd);
 	void setNonBlocking(int fd);
 
-	void initialParsing(int connectionFd, std::string& connectionBuffer, Request& request);
+	void parseRequest(Connection& connection);
 	void parseRequestLine(std::string& connectionBuffer, Request& request);
 	void parseMethod(std::string& requestLine, Request& request);
 	void parseTarget(std::string& requestLine, Request& request);

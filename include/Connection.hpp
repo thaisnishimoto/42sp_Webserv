@@ -19,6 +19,8 @@ public:
 	Response response;
 	VirtualServer* virtualServer;
 
+	bool error;
+
 	Connection(void);
 	Connection(int fd);
 };
