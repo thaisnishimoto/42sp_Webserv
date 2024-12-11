@@ -3,9 +3,7 @@
 
 #define MAX_EVENTS 10
 
-#include "VirtualServer.hpp"
-#include "Request.hpp"
-#include "Response.hpp"
+#include "Connection.hpp"
 
 #include <stdexcept>
 #include <vector>
@@ -28,10 +26,8 @@ private:
 	std::set<uint16_t> _ports;
 	std::map<int, uint16_t> _socketsToPorts;
 	std::vector<VirtualServer> _virtualServers;
-	std::map<int, std::string> _connectionBuffers;
-	std::map<int, Request> _requestMap;
-	std::map<int, Response> _responseMap;
-	std::map<int, VirtualServer*> _targetVirtualServers;
+
+	std::map<int, Connection> _connectionsMap;
 
 	//provisory
 	std::set<std::string> _implementedMethods;
