@@ -255,14 +255,16 @@ void WebServer::fillResponse(Connection& connection)
 void WebServer::identifyVirtualServer(Connection& connection)
 {
 	std::pair<uint32_t, uint16_t> key(connection.host, connection.port);
-	std::map<std::pair<uint32_t, uint16_t>, std::map<std::string, VirtualServer*> >::iterator it = _vServersLookup.find(key);
-	if (it == _vServersLookup.end())
+	std::map<std::string, VirtualServer*> vServersFromHostPort = _vServersLookup[key];
+	std::string serverName = connection.request.headerFields["host"];
+	std::map<std::string, VirtualServer*>::iterator it = vServersFromHostPort.find(serverName);
+	if (it == vServersFromHostPort.end())
 	{
+		//set default
 		std::cout << "Not found vserver" << std::endl;
 		return;
 	}
-	std::map<std::string, VirtualServer*> tmp = it->second;
-	connection.virtualServer = tmp[connection.request.headerFields["host"]];
+	connection.virtualServer = it->second;
 }
 
 void WebServer::parseRequest(Connection& connection)
