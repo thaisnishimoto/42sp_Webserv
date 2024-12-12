@@ -249,6 +249,7 @@ void WebServer::fillResponse(Connection& connection)
 	}
 	else
 	{
+		identifyVirtualServer(connection);
 		response.statusCode = "200";
 		response.reasonPhrase = "OK";
 		std::pair<std::string, std::string> pair ("origin", connection.virtualServer->name);
@@ -289,7 +290,6 @@ void WebServer::parseRequest(Connection& connection)
 	if (connection.request.parsedHeader == true && connection.request.continueParsing == true)
 	{
 		validateHeader(connection.request);
-		identifyVirtualServer(connection);
 	}
 	if (connection.request.parsedHeader == true)
 	{
@@ -302,6 +302,7 @@ void WebServer::parseRequest(Connection& connection)
 			 ++it;
 		 }
 		 std::cout << "---------------------------------" << std::endl;
+		//line below for test
 		connection.request.continueParsing = false;
 	}
 	std::cout << "bad request= " << connection.request.badRequest << std::endl;
