@@ -119,7 +119,7 @@ void WebServer::bindSocket(void)
 		struct sockaddr_in	server_address;
 		std::memset(&server_address, 0, sizeof(sockaddr_in));
 		//this will change later
-		server_address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+		server_address.sin_addr.s_addr = htonl(INADDR_ANY);
 		server_address.sin_family = AF_INET;
 		server_address.sin_port = htons(it->second);
 
@@ -214,6 +214,7 @@ void WebServer::run(void)
 					std::cout << "Sent " << bytesSent << "bytes" << std::endl;
 
 					epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL); 
+					_connectionsMap.erase(eventFd);
 					close(eventFd);
 				}
 				//codigo para response
