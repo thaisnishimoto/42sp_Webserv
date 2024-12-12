@@ -27,6 +27,7 @@ private:
 	std::map<int, uint16_t> _socketsToPorts;
 	std::vector<VirtualServer> _virtualServers;
 	std::map<std::pair<uint32_t, uint16_t>, std::map<std::string, VirtualServer*> > _vServersLookup;
+	std::map<uint16_t, VirtualServer*> _vServersDefault;
 
 	std::map<int, Connection> _connectionsMap;
 

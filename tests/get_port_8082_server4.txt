@@ -1,0 +1,6 @@
+verbose
+url = localhost:8082
+request = GET
+header = "Host: Server4"
+header = "Teste: valor de teste"
+header = "Teste: valor de teste"

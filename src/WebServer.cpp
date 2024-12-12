@@ -49,6 +49,12 @@ void WebServer::init(void)
 	std::pair<uint32_t, uint16_t>	pair2(0x7f000001, 8082);
 	_vServersLookup.insert(std::pair<std::pair<uint32_t, uint16_t>, std::map<std::string, VirtualServer*> >(pair2, map2));
 
+	//set default servers
+	std::pair<uint16_t, VirtualServer*>	default1(8081, &_virtualServers[1]);
+	_vServersDefault.insert(default1);
+	std::pair<uint16_t, VirtualServer*>	default2(8082, &_virtualServers[2]);
+	_vServersDefault.insert(default2);
+
 	_epollFd = epoll_create(1);
 	if (_epollFd == -1)
 	{
@@ -262,6 +268,7 @@ void WebServer::identifyVirtualServer(Connection& connection)
 	{
 		//set default
 		std::cout << "Not found vserver" << std::endl;
+		connection.virtualServer = _vServersDefault[connection.port];
 		return;
 	}
 	connection.virtualServer = it->second;
