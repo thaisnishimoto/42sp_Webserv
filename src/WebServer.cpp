@@ -1,6 +1,7 @@
 #include "WebServer.hpp"
 #include "utils.hpp"
 #include <fcntl.h>
+#include <netinet/in.h>
 #include <sys/socket.h>
 
 WebServer::WebServer(void)
@@ -117,7 +118,8 @@ void WebServer::bindSocket(void)
 		int sockFd = it->first;
 		struct sockaddr_in	server_address;
 		std::memset(&server_address, 0, sizeof(sockaddr_in));
-		server_address.sin_addr.s_addr = INADDR_ANY;
+		//this will change later
+		server_address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 		server_address.sin_family = AF_INET;
 		server_address.sin_port = htons(it->second);
 

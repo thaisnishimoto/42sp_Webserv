@@ -21,7 +21,7 @@ Connection::Connection(int fd)
 	}
 
 	connectionFd = fd;
-	port = connectionInfo.sin_port;
-	host = connectionInfo.sin_addr.s_addr;
+	port = ntohs(connectionInfo.sin_port);
+	host = ntohl(connectionInfo.sin_addr.s_addr);
 	virtualServer = NULL;
 }
