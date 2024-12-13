@@ -305,7 +305,7 @@ void WebServer::parseRequest(Connection& connection)
 		//line below for test
 		connection.request.continueParsing = false;
 	}
-	std::cout << "bad request= " << connection.request.badRequest << std::endl;
+	if ()
 }
 
 static bool findRN(const std::string& line)
