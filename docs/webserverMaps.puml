@@ -1,6 +1,8 @@
 @startuml
 !pragma layout elk
 
+title "Selection of VirtualServer"
+
 together {
 	object virtualServer1
 	object virtualServer2
