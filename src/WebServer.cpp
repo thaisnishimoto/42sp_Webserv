@@ -1,5 +1,6 @@
 #include "WebServer.hpp"
 #include "utils.hpp"
+#include <cstdlib>
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -277,25 +278,28 @@ void WebServer::identifyVirtualServer(Connection& connection)
 
 void WebServer::parseRequest(Connection& connection)
 {
+	Request& request = connection.request;
 	consumeNetworkBuffer(connection.connectionFd, connection.buffer);
 
-	if (connection.request.parsedRequestLine == false)
+	if (request.parsedRequestLine == false)
 	{
-		parseRequestLine(connection.buffer, connection.request);
+		parseRequestLine(connection.buffer, request);
 	}
-	if (connection.request.parsedRequestLine == true && connection.request.parsedHeader == false && connection.request.continueParsing == true)
+	if (request.parsedRequestLine == true && request.parsedHeader == false
+		&& request.continueParsing == true)
 	{
-		parseHeader(connection.buffer, connection.request);
+		parseHeader(connection.buffer, request);
 	}
-	if (connection.request.parsedHeader == true && connection.request.continueParsing == true)
+	if (request.parsedHeader == true && request.continueParsing == true
+		&& request.validatedHeader == false)
 	{
-		validateHeader(connection.request);
+		validateHeader(request);
 	}
-	if (connection.request.parsedHeader == true)
+	if (request.parsedHeader == true)
 	{
 		 std::map<std::string, std::string>::iterator it, ite;
-		 it = connection.request.headerFields.begin();
-		 ite = connection.request.headerFields.end();
+		 it = request.headerFields.begin();
+		 ite = request.headerFields.end();
 		 while (it != ite)
 		 {
 			 std::cout << "key: " << it->first << " | value: " << it->second << std::endl;
@@ -303,10 +307,17 @@ void WebServer::parseRequest(Connection& connection)
 		 }
 		 std::cout << "---------------------------------" << std::endl;
 		//line below for test
-		connection.request.continueParsing = false;
+		request.continueParsing = false;
 	}
-	if ()
+	// if (request.validatedHeader == true)
+	// {
+	// 	parseBody(connection.buffer, request);
+	// }
 }
+
+// void WebServer::parseBody(std::string& connectionBuffer, Request& request)
+// {
+// }
 
 static bool findRN(const std::string& line)
 {
@@ -486,9 +497,9 @@ static bool validateContentLength(Request& request)
      	return  false;
      }
      std::istringstream ss(request.headerFields["content-length"]);
-     long long value;
+     unsigned long value;
      ss >> value;
-     if (ss.fail() || !ss.eof() || ss.bad() || value < 0)
+     if (ss.good() == false)
      {
        return false;
      }
@@ -565,6 +576,8 @@ void WebServer::validateHeader(Request& request)
 		request.continueParsing = false;
         return;
     }
+
+	request.validatedHeader = true;
 }
 
 
