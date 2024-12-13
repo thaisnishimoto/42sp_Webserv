@@ -59,7 +59,8 @@ int main() {
     std::string Request =
         "GET / HTTP/1.1\r\n"
         "Host: 127.0.0.1\r\n"
-        "Content-Length: 10 \r\n"
+        "Content-Type:\r\n"
+        "Content-Length: 10\r\n"
         "Connection: close\r\n\r\n";
 
     std::cout << "----------------------" << std::endl;

@@ -308,7 +308,7 @@ void WebServer::parseRequest(Connection& connection)
 	std::cout << "bad request= " << connection.request.badRequest << std::endl;
 }
 
-static bool findExtraRN(const std::string& line)
+static bool findRN(const std::string& line)
 {
 	bool found = false;
 	if (line.find('\r') != std::string::npos || line.find('\n') != std::string::npos)
@@ -356,7 +356,7 @@ void WebServer::parseTarget(std::string& requestLine, Request& request)
 {
 	std::string requestTarget = requestLine.substr(0, requestLine.find(" "));
     std::cout << "request target: " << requestTarget << std::endl;
-    if (requestTarget.size() == 0 || findExtraRN(requestTarget) == true)
+    if (requestTarget.size() == 0 || findRN(requestTarget) == true)
     {
         request.badRequest = true;
 		request.continueParsing = false;
@@ -510,14 +510,14 @@ static bool validateHost(Request& request)
     return true;
 }
 
-static bool findRNFields(Request& request)
+static bool findExtraRN(Request& request)
 {
     std::map<std::string, std::string>::iterator it, ite;
     it = request.headerFields.begin();
     ite = request.headerFields.end();
     while (it != ite)
     {
-        if (findExtraRN(it->first) || findExtraRN(it->second))
+        if (findRN(it->first) || findRN(it->second))
         {
             return true;
         }
@@ -526,8 +526,26 @@ static bool findRNFields(Request& request)
     return false;
 }
 
+static bool hasCLAndTEHeaders(Request& request)
+{
+	bool result = false;
+	int cl = request.headerFields.count("content-length");
+	int te = request.headerFields.count("transfer-encoding");
+	if (cl == 1 && te == 1)
+	{
+		result = true;
+	}
+	return result;
+}
+
 void WebServer::validateHeader(Request& request)
 {
+	if (hasCLAndTEHeaders(request) == true)
+	{
+		request.badRequest = true;
+		request.continueParsing = false;
+		return;
+	}
 	if (validateContentLength(request) == false)
     {
 		request.badRequest = true;
@@ -541,7 +559,7 @@ void WebServer::validateHeader(Request& request)
         return;
     }
 	//need to see more about extras RN
-    if (findRNFields(request) == true)
+    if (findExtraRN(request) == true)
     {
     	request.badRequest = true;
 		request.continueParsing = false;
