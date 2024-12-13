@@ -3,31 +3,70 @@
 
 #define MAX_EVENTS 10
 
-#include "VirtualServer.hpp"
-#include "Request.hpp"
+#include "Connection.hpp"
 
 #include <stdexcept>
 #include <vector>
 #include <sys/epoll.h>
 #include <map>
+#include <set>
+#include <sstream>
 #include <cerrno>
 #include <cstdio>
 #include <stdexcept>
 #include <fcntl.h>
+#include <cstring>
+#include <unistd.h>
+#include <errno.h>
 
 class WebServer
 {
 private:
-	std::vector<VirtualServer*> _virtualServers;
 	int _epollFd;
-	std::map<int, VirtualServer*> _listeners;
-	std::map<int, VirtualServer*> _connections;
+	std::set<uint16_t> _ports;
+	std::map<int, uint16_t> _socketsToPorts;
+	std::vector<VirtualServer> _virtualServers;
+	std::map<std::pair<uint32_t, uint16_t>, std::map<std::string, VirtualServer*> > _vServersLookup;
+	std::map<uint16_t, VirtualServer*> _vServersDefault;
+
+	std::map<int, Connection> _connectionsMap;
+
+	//provisory
+	std::set<std::string> _implementedMethods;
+	std::set<std::string> _unimplementedMethods;
+
 
 public:
 	WebServer(void);
 	~WebServer(void);
-	void run(void);
 	void init(void);
+	void run(void);
+
+	void setUpSockets(std::set<uint16_t> ports);
+	void bindSocket(void);
+	void startListening(void);
+
+	void addSocketsToEpoll(void);
+	void modifyEventInterest(int epollFd, int eventFd, uint32_t event);
+
+	int acceptConnection(int epollFd, int eventFd);
+	void setNonBlocking(int fd);
+
+	void parseRequest(Connection& connection);
+	void parseRequestLine(std::string& connectionBuffer, Request& request);
+	void parseMethod(std::string& requestLine, Request& request);
+	void parseTarget(std::string& requestLine, Request& request);
+	void parseVersion(std::string& requestLine, Request& request);
+
+	void parseHeader(std::string& connectionBuffer, Request& request);
+	void identifyVirtualServer(Connection& connection);
+	std::string captureFieldName(std::string& fieldLine);
+	std::string captureFieldValues(std::string& fieldLine);
+	void validateHeader(Request& request);
+
+	void fillResponse(Connection& connection);
+
+	int consumeNetworkBuffer(int connectionFd, std::string& connectionBuffer);
 };
 
 #endif //_WERBSERVER_HPP_
