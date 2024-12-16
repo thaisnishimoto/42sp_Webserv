@@ -501,17 +501,32 @@ static bool validateContentLength(Request& request)
     {
         return true;
     }
-    if (request.headerFields["content-length"].find(",") != std::string::npos ||
-        request.headerFields["content-length"].find(" ") != std::string::npos)
+
+	std::string fieldValue = request.headerFields["content-length"];
+	if (fieldValue.empty() == true)
+	{
+		return false;
+	}
+    if (fieldValue.find(",") != std::string::npos ||
+        fieldValue.find(" ") != std::string::npos)
     {
         return false;
     }
-    std::istringstream ss(request.headerFields["content-length"]);
-    unsigned long value;
-    ss >> value;
-    if (ss.good() == false)
-    {
-        return false;
+	
+	//checking if we receive only digits
+	for (std::string::const_iterator it = fieldValue.begin();
+		it != fieldValue.end(); ++it)
+	{
+		if (std::isdigit(*it) == 0)
+		{
+			return false;
+		}
+	}
+	//capture value in numeric format
+	unsigned long long value = 0;
+    for (std::string::const_iterator it = fieldValue.begin(); it != fieldValue.end(); ++it)
+	{
+        value = value * 10 + (*it - '0');
     }
     request.contentLength = value;
     return true;
