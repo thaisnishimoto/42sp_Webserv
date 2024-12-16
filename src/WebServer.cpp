@@ -215,8 +215,9 @@ void WebServer::run(void)
                     std::string tmp;
                     tmp = "HTTP/1.1 " + connection.response.statusCode + " " + connection.response.reasonPhrase +
                         "\r\n";
-                    tmp += "origin: " + connection.response.headerFields["origin"] + "\r\n";
-                    tmp += "\r\n";
+					tmp += "content-length: 10\r\n";
+                    tmp += "origin: " + connection.response.headerFields["origin"] + "\r\n\r\n";
+					tmp += connection.response.body;
                     int bytesSent;
                     std::cout << "Will call send now" << std::endl;
                     bytesSent = send(eventFd, tmp.c_str(), tmp.size(), 0);
@@ -257,6 +258,7 @@ void WebServer::fillResponse(Connection& connection)
         response.reasonPhrase = "OK";
         std::pair<std::string, std::string> pair("origin", connection.virtualServer->name);
         response.headerFields.insert(pair);
+		response.body = request.body;
     }
     response.isReady = true;
 }
@@ -309,7 +311,7 @@ void WebServer::parseRequest(Connection& connection)
         }
         std::cout << "---------------------------------" << std::endl;
         //line below for test
-        request.continueParsing = false;
+        // request.continueParsing = false;
     }
     if (request.validatedHeader == true)
     {
@@ -322,7 +324,7 @@ void WebServer::parseBody(std::string& connectionBuffer, Request& request)
     if (connectionBuffer.size() >= request.contentLength)
     {
         request.body.append(connectionBuffer,0, request.contentLength);
-        connectionBuffer = connectionBuffer.substr(request.contentLength + 1);
+        connectionBuffer = connectionBuffer.substr(request.contentLength);
         request.parsedBody = true;
         request.continueParsing = false;
     }
