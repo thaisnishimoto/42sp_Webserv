@@ -11,11 +11,14 @@ public:
 	std::string target;
 	std::map<std::string, std::string> headerFields;
 	std::string body;
+	size_t contentLength;
 
 	bool parsedMethod;
 	bool parsedRequestLine;
 	bool parsedHeader;
 	bool parsedBody;
+
+	bool validatedHeader;
 
 	bool badRequest;
 	

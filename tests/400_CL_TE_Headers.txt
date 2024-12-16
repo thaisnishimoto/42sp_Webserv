@@ -1,0 +1,8 @@
+verbose
+url = localhost:8081
+request = GET
+header = "Content-length: 10"
+header = "Transfer-encoding: chunked"
+header = "Host: qualquer "
+header = "Teste: valor de teste"
+header = "Teste: valor de teste"

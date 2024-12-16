@@ -5,6 +5,7 @@ Request::Request(void)
 	parsedMethod = false;
 	parsedRequestLine = false;
 	parsedHeader = false;
+	validatedHeader = false;
 	parsedBody = false;
 	badRequest = false;
 	continueParsing = true;

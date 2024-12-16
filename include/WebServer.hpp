@@ -64,6 +64,8 @@ public:
 	std::string captureFieldValues(std::string& fieldLine);
 	void validateHeader(Request& request);
 
+	void parseBody(std::string& connectionBuffer, Request& request);
+
 	void fillResponse(Connection& connection);
 
 	int consumeNetworkBuffer(int connectionFd, std::string& connectionBuffer);
