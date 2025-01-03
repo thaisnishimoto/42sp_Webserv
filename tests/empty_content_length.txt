@@ -1,0 +1,7 @@
+verbose
+url = localhost:8081
+request = GET
+header = "Host: Server1"
+header = "Content-Length;"
+header = "Empty;"
+data = "Body Bodysssssss"
