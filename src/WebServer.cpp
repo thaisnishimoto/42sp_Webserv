@@ -5,6 +5,8 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 
+static bool validateTransferEncoding(Request& request);
+
 WebServer::WebServer(void)
 {
     _implementedMethods.insert("GET");
@@ -250,6 +252,11 @@ void WebServer::fillResponse(Connection& connection)
     {
         response.statusCode = "400";
         response.reasonPhrase = "Bad Request";
+    }
+    else if (validateTransferEncoding(request) == false)
+    {
+        response.statusCode = "501";
+        response.reasonPhrase = "Not Implemented";
     }
     else
     {
@@ -538,7 +545,8 @@ static bool validateContentLength(Request& request)
     return true;
 }
 
-static bool validateTransferEncoding(Request& request) {
+static bool validateTransferEncoding(Request& request)
+{
     if (request.headerFields.count("transfer-encoding") == 0)
     {
         return true;
