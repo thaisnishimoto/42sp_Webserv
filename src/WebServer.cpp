@@ -437,6 +437,10 @@ void WebServer::parseHeader(std::string& connectionBuffer, Request& request)
         insertCheck = request.headerFields.insert(tmp);
         if (insertCheck.second == false)
         {
+            // quick fix double field name TE CL
+            if (fieldName == "transfer-encoding" || fieldName == "content-length") {
+                request.badRequest = true;
+            }
             request.headerFields[fieldName] = request.headerFields[fieldName] + ", " + fieldValues;
         }
         fieldLine = getNextLineRN(connectionBuffer);
@@ -534,6 +538,18 @@ static bool validateContentLength(Request& request)
     return true;
 }
 
+static bool validateTransferEncoding(Request& request) {
+    if (request.headerFields.count("transfer-encoding") == 0)
+    {
+        return true;
+    }
+    std::string fieldValue = request.headerFields["transfer-encoding"];
+    if (fieldValue != "chunked") {
+        return false;
+    }
+    return true;
+}
+
 static bool validateHost(Request& request)
 {
     if (request.headerFields.count("host") != 1)
@@ -579,13 +595,18 @@ static bool hasCLAndTEHeaders(Request& request)
 
 void WebServer::validateHeader(Request& request)
 {
-    if (hasCLAndTEHeaders(request) == true)
+    if (validateContentLength(request) == false)
     {
         request.badRequest = true;
         request.continueParsing = false;
         return;
     }
-    if (validateContentLength(request) == false)
+    if (validateTransferEncoding(request) == false)
+    {
+        request.continueParsing = false;
+        return;
+    }
+    if (hasCLAndTEHeaders(request) == true)
     {
         request.badRequest = true;
         request.continueParsing = false;
