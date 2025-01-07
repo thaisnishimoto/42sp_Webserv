@@ -328,25 +328,52 @@ void WebServer::parseRequest(Connection& connection)
 
 void WebServer::parseBody(std::string& connectionBuffer, Request& request)
 {
-	if (request.isChunked == true)
+	if (request.isChunked == true &&
+		connectionBuffer.find("0\r\n\r\n") != std::string::npos)
 	{
-		std::cout << "Request is chunked" << std::endl;
-		std::string hexSize = getNextLineRN(connectionBuffer);
-		std::string chunk = getNextLineRN(connectionBuffer);
-	    if (hexSize.empty() != true) {
-            int n;
-	        std::istringstream iss("-10");
-	        if (iss >> std::hex >> n && iss.eof() != false){
-	            std::cout << "Chunk size: "<< n << std::endl;
-	        }
-	        else {
-	            std::cout << "Invalid chunk size" << std::endl;
-	        }
-	    }
-		//if  chunk.size != dec(hexSize) break;
-		
+		while(true)
+		{
+			//TODO
+			//Make sure that the sum of sizes of chunk
+			//does not exceed body limite size.
+			std::cout << "Request is chunked" << std::endl;
+
+			std::string hexSize = getNextLineRN(connectionBuffer);
+			hexSize = removeCRLF(hexSize);
+
+			long decSize;
+			std::istringstream iss(hexSize);
+			if (iss >> std::hex >> decSize && iss.eof() != false)
+			{
+				std::cout << "Chunk size: "<< decSize << std::endl;
+			}
+			else
+			{
+				std::cout << "Invalid chunk size" << std::endl;
+				request.badRequest = true;
+				request.continueParsing = false;
+			}
+
+			std::string chunk = getNextLineRN(connectionBuffer);
+			chunk = removeCRLF(chunk);
+			if (chunk.size() != (size_t) decSize)
+			{
+				std::cout << "Sizes don't match!" << std::endl;
+				request.badRequest = true;
+				request.continueParsing = false;
+			}
+			request.body.append(chunk);
+
+			if (decSize == 0)
+			{
+				request.continueParsing = false;
+				request.parsedBody = true;
+				break;
+			}
+		}
 	}
-	else if (connectionBuffer.size() >= request.contentLength)
+	else if (connectionBuffer.size() >= request.contentLength &&
+			request.isChunked == false)
     {
         request.body.append(connectionBuffer, 0, request.contentLength);
         connectionBuffer = connectionBuffer.substr(request.contentLength);
