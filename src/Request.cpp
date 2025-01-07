@@ -10,6 +10,7 @@ Request::Request(void)
 	badRequest = false;
 	continueParsing = true;
 	contentLength = 0;
+	isChunked = false;
 }
 
 // void Request::parseRequest(std::string& buffer)

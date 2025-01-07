@@ -336,6 +336,10 @@ void WebServer::parseBody(std::string& connectionBuffer, Request& request)
         request.parsedBody = true;
         request.continueParsing = false;
     }
+	else if (request.isChunked == true)
+	{
+		std::cout << "Request is chunked" << std::endl;
+	}
 }
 
 static bool findRN(const std::string& line)
@@ -556,6 +560,7 @@ static bool validateTransferEncoding(Request& request)
     if (fieldValue != "chunked") {
         return false;
     }
+	request.isChunked = true;
     return true;
 }
 
