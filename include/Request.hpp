@@ -24,6 +24,8 @@ public:
 	
 	bool continueParsing;
 
+	bool isChunked;
+
 	Request(void);
 
 // public:

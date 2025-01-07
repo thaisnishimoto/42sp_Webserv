@@ -5,6 +5,8 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 
+static bool validateTransferEncoding(Request& request);
+
 WebServer::WebServer(void)
 {
     _implementedMethods.insert("GET");
@@ -251,6 +253,11 @@ void WebServer::fillResponse(Connection& connection)
         response.statusCode = "400";
         response.reasonPhrase = "Bad Request";
     }
+    else if (validateTransferEncoding(request) == false)
+    {
+        response.statusCode = "501";
+        response.reasonPhrase = "Not Implemented";
+    }
     else
     {
         identifyVirtualServer(connection);
@@ -321,9 +328,56 @@ void WebServer::parseRequest(Connection& connection)
 
 void WebServer::parseBody(std::string& connectionBuffer, Request& request)
 {
-    if (connectionBuffer.size() >= request.contentLength)
+	if (request.isChunked == true &&
+		connectionBuffer.find("0\r\n\r\n") != std::string::npos)
+	{
+		while(true)
+		{
+			//TODO
+			//Make sure that the sum of sizes of chunk
+			//does not exceed body limite size.
+			std::cout << "Request is chunked" << std::endl;
+
+			std::string hexSize = getNextLineRN(connectionBuffer);
+			hexSize = removeCRLF(hexSize);
+
+			long decSize;
+			std::istringstream iss(hexSize);
+			if (iss >> std::hex >> decSize && iss.eof() != false)
+			{
+				std::cout << "Chunk size: "<< decSize << std::endl;
+			}
+			else
+			{
+				std::cout << "Invalid chunk size" << std::endl;
+				request.badRequest = true;
+				request.continueParsing = false;
+			    break;
+			}
+
+			std::string chunk = getNextLineRN(connectionBuffer);
+			chunk = removeCRLF(chunk);
+			if (chunk.size() != static_cast<size_t>(decSize))
+			{
+				std::cout << "Sizes don't match!" << std::endl;
+				request.badRequest = true;
+				request.continueParsing = false;
+			    break;
+			}
+			request.body.append(chunk);
+
+			if (decSize == 0)
+			{
+				request.continueParsing = false;
+				request.parsedBody = true;
+				break;
+			}
+		}
+	}
+	else if (connectionBuffer.size() >= request.contentLength &&
+			request.isChunked == false)
     {
-        request.body.append(connectionBuffer,0, request.contentLength);
+        request.body.append(connectionBuffer, 0, request.contentLength);
         connectionBuffer = connectionBuffer.substr(request.contentLength);
         request.parsedBody = true;
         request.continueParsing = false;
@@ -437,6 +491,10 @@ void WebServer::parseHeader(std::string& connectionBuffer, Request& request)
         insertCheck = request.headerFields.insert(tmp);
         if (insertCheck.second == false)
         {
+            // quick fix double field name TE CL
+            if (fieldName == "transfer-encoding" || fieldName == "content-length") {
+                request.badRequest = true;
+            }
             request.headerFields[fieldName] = request.headerFields[fieldName] + ", " + fieldValues;
         }
         fieldLine = getNextLineRN(connectionBuffer);
@@ -534,6 +592,20 @@ static bool validateContentLength(Request& request)
     return true;
 }
 
+static bool validateTransferEncoding(Request& request)
+{
+    if (request.headerFields.count("transfer-encoding") == 0)
+    {
+        return true;
+    }
+    std::string fieldValue = request.headerFields["transfer-encoding"];
+    if (fieldValue != "chunked") {
+        return false;
+    }
+	request.isChunked = true;
+    return true;
+}
+
 static bool validateHost(Request& request)
 {
     if (request.headerFields.count("host") != 1)
@@ -579,13 +651,18 @@ static bool hasCLAndTEHeaders(Request& request)
 
 void WebServer::validateHeader(Request& request)
 {
-    if (hasCLAndTEHeaders(request) == true)
+    if (validateContentLength(request) == false)
     {
         request.badRequest = true;
         request.continueParsing = false;
         return;
     }
-    if (validateContentLength(request) == false)
+    if (validateTransferEncoding(request) == false)
+    {
+        request.continueParsing = false;
+        return;
+    }
+    if (hasCLAndTEHeaders(request) == true)
     {
         request.badRequest = true;
         request.continueParsing = false;
