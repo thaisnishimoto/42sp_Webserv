@@ -328,18 +328,17 @@ void WebServer::parseRequest(Connection& connection)
 
 void WebServer::parseBody(std::string& connectionBuffer, Request& request)
 {
-    if (connectionBuffer.size() >= request.contentLength &&
-		request.contentLength != 0)
+	if (request.isChunked == true)
+	{
+		std::cout << "Request is chunked" << std::endl;
+	}
+	else if (connectionBuffer.size() >= request.contentLength)
     {
-        request.body.append(connectionBuffer,0, request.contentLength);
+        request.body.append(connectionBuffer, 0, request.contentLength);
         connectionBuffer = connectionBuffer.substr(request.contentLength);
         request.parsedBody = true;
         request.continueParsing = false;
     }
-	else if (request.isChunked == true)
-	{
-		std::cout << "Request is chunked" << std::endl;
-	}
 }
 
 static bool findRN(const std::string& line)
