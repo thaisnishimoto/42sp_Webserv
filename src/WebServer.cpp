@@ -328,7 +328,8 @@ void WebServer::parseRequest(Connection& connection)
 
 void WebServer::parseBody(std::string& connectionBuffer, Request& request)
 {
-    if (connectionBuffer.size() >= request.contentLength)
+    if (connectionBuffer.size() >= request.contentLength &&
+		request.contentLength != 0)
     {
         request.body.append(connectionBuffer,0, request.contentLength);
         connectionBuffer = connectionBuffer.substr(request.contentLength);

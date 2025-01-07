@@ -9,6 +9,7 @@ Request::Request(void)
 	parsedBody = false;
 	badRequest = false;
 	continueParsing = true;
+	contentLength = 0;
 }
 
 // void Request::parseRequest(std::string& buffer)
