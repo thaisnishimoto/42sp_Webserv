@@ -331,6 +331,10 @@ void WebServer::parseBody(std::string& connectionBuffer, Request& request)
 	if (request.isChunked == true)
 	{
 		std::cout << "Request is chunked" << std::endl;
+		std::string hexSize = getNextLineRN(connectionBuffer);
+		std::string chunk = getNextLineRN(connectionBuffer);
+		//if  chunk.size != dec(hexSize) break;
+		
 	}
 	else if (connectionBuffer.size() >= request.contentLength)
     {
