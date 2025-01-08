@@ -2,6 +2,7 @@
 #define _CONNECTION_HPP_
 
 #include <netdb.h> //uint16_t
+#include <ctime> //time_t
 #include <iostream> //std::string
 
 #include "Request.hpp"
@@ -20,6 +21,7 @@ public:
 	VirtualServer* virtualServer;
 
 	bool error;
+	time_t lastActivity;
 
 	Connection(void);
 	Connection(int fd);
