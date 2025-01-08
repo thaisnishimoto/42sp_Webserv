@@ -161,6 +161,29 @@ void WebServer::startListening(void)
     }
 }
 
+void WebServer::checkTimeouts(void)
+{
+	time_t now = time(NULL);
+	std::map<int, Connection>::iterator it = _connectionsMap.begin(); 
+	std::map<int, Connection>::iterator ite = _connectionsMap.end(); 
+	while (it != ite)
+	{
+		if (now - it->second.lastActivity > TIMEOUT)
+		{
+			std::map<int, Connection>::iterator temp; 
+			std::cout << "Connection timed out. Fd: " << it->second.connectionFd << std::endl;
+			it->second.buffer.clear();
+			epoll_ctl(_epollFd, EPOLL_CTL_DEL, it->second.connectionFd, NULL);
+			close(it->second.connectionFd);
+			temp = it;
+			++it;
+			_connectionsMap.erase(temp);
+			continue;
+		}
+		++it;
+	}
+}
+
 void WebServer::run(void)
 {
     int fdsReady;
@@ -177,25 +200,7 @@ void WebServer::run(void)
             throw std::runtime_error("Server Error: could not create socket");
         }
 
-	time_t now = time(NULL);
-	std::map<int, Connection>::iterator it = _connectionsMap.begin(); 
-	std::map<int, Connection>::iterator ite = _connectionsMap.end(); 
-	while (it != ite)
-	{
-		if (now - it->second.lastActivity > 5)
-		{
-			std::map<int, Connection>::iterator temp; 
-			std::cout << "Connection timed out. Fd: " << it->second.connectionFd << std::endl;
-			it->second.buffer.clear();
-			epoll_ctl(_epollFd, EPOLL_CTL_DEL, it->second.connectionFd, NULL);
-			close(it->second.connectionFd);
-			temp = it;
-			++it;
-			_connectionsMap.erase(temp);
-			continue;
-		}
-		++it;
-	}
+	checkTimeouts();
 
         for (int i = 0; i < fdsReady; i++)
         {
@@ -722,6 +727,8 @@ int WebServer::consumeNetworkBuffer(int connectionFd, std::string& connectionBuf
     }
     else
     {
+	//TODO
+	//Erase connection from _connectionsMap
         std::cout << "Connection closed by the client" << std::endl;
         connectionBuffer.clear();
         // _connectionBuffers.erase(connectionFd);
