@@ -184,7 +184,15 @@ void WebServer::run(void)
 	{
 		if (now - it->second.lastActivity > 5)
 		{
+			std::map<int, Connection>::iterator temp; 
 			std::cout << "Connection timed out. Fd: " << it->second.connectionFd << std::endl;
+			it->second.buffer.clear();
+			epoll_ctl(_epollFd, EPOLL_CTL_DEL, it->second.connectionFd, NULL);
+			close(it->second.connectionFd);
+			temp = it;
+			++it;
+			_connectionsMap.erase(temp);
+			continue;
 		}
 		++it;
 	}
