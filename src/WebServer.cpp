@@ -169,13 +169,25 @@ void WebServer::run(void)
     std::cout << "Main loop initiating..." << std::endl;
     while (true)
     {
-        fdsReady = epoll_wait(_epollFd, _eventsList, MAX_EVENTS, -1);
+        fdsReady = epoll_wait(_epollFd, _eventsList, MAX_EVENTS, 1000);
         if (fdsReady == -1)
         {
             //TODO: deal with EINTR. (when signal is received during wait)
             std::cerr << std::strerror(errno) << std::endl;
             throw std::runtime_error("Server Error: could not create socket");
         }
+
+	time_t now = time(NULL);
+	std::map<int, Connection>::iterator it = _connectionsMap.begin(); 
+	std::map<int, Connection>::iterator ite = _connectionsMap.end(); 
+	while (it != ite)
+	{
+		if (now - it->second.lastActivity > 5)
+		{
+			std::cout << "Connection timed out. Fd: " << it->second.connectionFd << std::endl;
+		}
+		++it;
+	}
 
         for (int i = 0; i < fdsReady; i++)
         {
@@ -290,7 +302,10 @@ void WebServer::identifyVirtualServer(Connection& connection)
 void WebServer::parseRequest(Connection& connection)
 {
     Request& request = connection.request;
-    consumeNetworkBuffer(connection.connectionFd, connection.buffer);
+    if (consumeNetworkBuffer(connection.connectionFd, connection.buffer) == 0)
+    {
+	connection.lastActivity = time(NULL);
+    }
 
     if (request.parsedRequestLine == false)
     {
