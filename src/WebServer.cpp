@@ -161,6 +161,29 @@ void WebServer::startListening(void)
     }
 }
 
+void WebServer::checkTimeouts(void)
+{
+	time_t now = time(NULL);
+	std::map<int, Connection>::iterator it = _connectionsMap.begin(); 
+	std::map<int, Connection>::iterator ite = _connectionsMap.end(); 
+	while (it != ite)
+	{
+		if (now - it->second.lastActivity > TIMEOUT)
+		{
+			std::map<int, Connection>::iterator temp; 
+			std::cout << "Connection timed out. Fd: " << it->second.connectionFd << std::endl;
+			it->second.buffer.clear();
+			epoll_ctl(_epollFd, EPOLL_CTL_DEL, it->second.connectionFd, NULL);
+			close(it->second.connectionFd);
+			temp = it;
+			++it;
+			_connectionsMap.erase(temp);
+			continue;
+		}
+		++it;
+	}
+}
+
 void WebServer::run(void)
 {
     int fdsReady;
@@ -169,13 +192,15 @@ void WebServer::run(void)
     std::cout << "Main loop initiating..." << std::endl;
     while (true)
     {
-        fdsReady = epoll_wait(_epollFd, _eventsList, MAX_EVENTS, -1);
+        fdsReady = epoll_wait(_epollFd, _eventsList, MAX_EVENTS, 1000);
         if (fdsReady == -1)
         {
             //TODO: deal with EINTR. (when signal is received during wait)
             std::cerr << std::strerror(errno) << std::endl;
             throw std::runtime_error("Server Error: could not create socket");
         }
+
+	checkTimeouts();
 
         for (int i = 0; i < fdsReady; i++)
         {
@@ -290,7 +315,10 @@ void WebServer::identifyVirtualServer(Connection& connection)
 void WebServer::parseRequest(Connection& connection)
 {
     Request& request = connection.request;
-    consumeNetworkBuffer(connection.connectionFd, connection.buffer);
+    if (consumeNetworkBuffer(connection.connectionFd, connection.buffer) == 0)
+    {
+	connection.lastActivity = time(NULL);
+    }
 
     if (request.parsedRequestLine == false)
     {
@@ -699,6 +727,8 @@ int WebServer::consumeNetworkBuffer(int connectionFd, std::string& connectionBuf
     }
     else
     {
+	//TODO
+	//Erase connection from _connectionsMap
         std::cout << "Connection closed by the client" << std::endl;
         connectionBuffer.clear();
         // _connectionBuffers.erase(connectionFd);

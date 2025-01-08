@@ -2,6 +2,7 @@
 #define _WEBSERVER_HPP_
 
 #define MAX_EVENTS 10
+#define TIMEOUT 60
 
 #include "Connection.hpp"
 
@@ -50,6 +51,7 @@ public:
 	void modifyEventInterest(int epollFd, int eventFd, uint32_t event);
 
 	int acceptConnection(int epollFd, int eventFd);
+	void checkTimeouts(void);
 	void setNonBlocking(int fd);
 
 	void parseRequest(Connection& connection);
