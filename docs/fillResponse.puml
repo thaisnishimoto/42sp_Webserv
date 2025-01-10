@@ -1,0 +1,98 @@
+@startuml
+
+title Fill Response object
+
+start
+	group parseRequestline
+		:capture first line from network buffer;
+		if (is it just CRLF?) then (yes)
+			:capture next line of network buffer;
+		else (no)
+		endif
+		group parseMethod
+			:capture first word using space delimiter;
+			if (is it an HTTP method?) then (yes)
+				:update Request object with method;
+				:update line in order to parse target;
+			else (no)
+				:update Request object do bad request;
+				:update continueParsing to false;
+			endif
+		end group
+		if (parsing continues?) then (no)
+			stop;
+		else (yes)
+			group Parse Target
+				: capture word using space delimiter;
+			if (is there a word?) then (yes)
+				:update  request object with target;
+				:update line in order to parse version;
+			else (no)
+				:update request object to bad request;
+				:update continue parsing to false;
+			endif
+			end group
+		if (parsing continues?) then (no)
+			stop;
+		else (yes)
+			group Parse Version
+				if (dooes rest of line matches HTTTP/1.1CRLF) then (no)
+				:update request object to bad request;
+				:update continue parsing to false;
+			else (yes)
+			endif
+			end group
+			:change request.parsedRequestLine to true;
+		endif
+		endif
+	end group
+		if (parsing continues?) then (no)
+			stop;
+		else (yes)
+	group parseHeader
+		:capture next line of network buffer;
+		while (line is CRLF?) is (no)
+			:capture field name using colon as delimiter;
+			if (field name is empty) then (yes)
+				:update request to bad request;
+				:change continueParsing to false;
+				stop
+			else (no)
+			endif
+			:capture field values;
+			:add pair (field-name, field-values) to request.headerFields);
+			:capture next line of network buffer;
+		endwhile (yes)
+		:change request.parsedHeader to true;
+	end group
+	group validateHeader
+		:validate Content-Length;
+		:validate Host;
+		:find any extras CR or LFs;
+		:validade Content-Length + Transfer-Encoding;
+	end group
+		if (parsing continues?) then (no)
+			stop
+		else (yes)
+		endif
+	group parseBody
+		switch (Content-Length or Transfer-Encoding?)
+			case (none)
+			: 411 Content-Length required;
+			stop;
+			case ( Content-Length )
+			if (connection timeout?) then (yes)
+				stop
+			else (no)
+			endif
+			while (body has reached size in Content-Length?) is (no)
+				:continue reading;
+			endwhile (yes)
+			case ( Transfer-Encoding )
+				:do that;
+		endswitch
+	end group
+stop
+
+
+@enduml
