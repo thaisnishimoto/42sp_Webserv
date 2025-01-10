@@ -1,0 +1,33 @@
+@startuml
+
+!pragma useVerticalIf on
+
+title Reacting to methods
+
+start
+
+split
+	: GET;
+	if (found a representation of the target resource?) then (no)
+		: 404 not found;
+		stop
+	else if (are permissions ok for the representation?) then (no)
+		: 403 Unauthroized;
+		stop
+	else if (has the resource been moved?) then (yes)
+		: 301 Moved Permanently;
+		stop
+	else (no)
+		: 200 OK;
+		: append content of resource to response body;
+		: populate response headers accordingly;
+	endif
+split again
+	:POST;
+split again
+	:DELETE;
+end split
+stop
+
+
+@enduml
