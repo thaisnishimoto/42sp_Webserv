@@ -50,6 +50,10 @@ start
 			stop;
 		else (yes)
 	group parseHeader
+		note 
+			Deal with Transfer-Encoding
+			and Content-Length cases
+		end note
 		:capture next line of network buffer;
 		while (line is CRLF?) is (no)
 			:capture field name using colon as delimiter;
@@ -67,9 +71,10 @@ start
 	end group
 	group validateHeader
 		:validate Content-Length;
+		:validate Transfer-Encoding;
+		:validade Content-Length + Transfer-Encoding;
 		:validate Host;
 		:find any extras CR or LFs;
-		:validade Content-Length + Transfer-Encoding;
 	end group
 		if (parsing continues?) then (no)
 			stop
@@ -81,15 +86,13 @@ start
 			: 411 Content-Length required;
 			stop;
 			case ( Content-Length )
-			if (connection timeout?) then (yes)
-				stop
-			else (no)
-			endif
 			while (body has reached size in Content-Length?) is (no)
 				:continue reading;
 			endwhile (yes)
 			case ( Transfer-Encoding )
-				:do that;
+			while (is captured chunkSize zero?) is (no)
+				:capture chunk based on size;
+			endwhile (yes)
 		endswitch
 	end group
 stop
