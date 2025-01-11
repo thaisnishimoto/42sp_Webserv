@@ -233,6 +233,7 @@ void WebServer::run(void)
                 if (connection.request.continueParsing == false)
                 {
                     modifyEventInterest(_epollFd, eventFd, EPOLLOUT);
+					_logger.log(DEBUG, "Fd " + itoa(eventFd) + " now on EPOLLOUT");
                 }
             }
             else if ((_eventsList[i].events & EPOLLOUT) == EPOLLOUT)
@@ -256,6 +257,7 @@ void WebServer::run(void)
 					_logger.log(INFO, "Response sent. Fd: " + itoa(connection.connectionFd));
 
                     epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL);
+					_logger.log(DEBUG, "Fd " + itoa(connection.connectionFd) + " deleted from epoll instance");
                     _connectionsMap.erase(eventFd);
                     close(eventFd);
                 }
@@ -735,9 +737,11 @@ int WebServer::consumeNetworkBuffer(int connectionFd, std::string& connectionBuf
 	//TODO
 	//Erase connection from _connectionsMap
         std::cout << "Connection closed by the client" << std::endl;
+		_logger.log(INFO, "Fd " + itoa(connectionFd) + ". Connection closed by client.");
         connectionBuffer.clear();
         // _connectionBuffers.erase(connectionFd);
         epoll_ctl(_epollFd, EPOLL_CTL_DEL, connectionFd, NULL);
+		_logger.log(DEBUG, "Fd " + itoa(connectionFd) + " deleted from epoll instance");
         close(connectionFd);
         return 1;
     }
@@ -756,6 +760,7 @@ int WebServer::acceptConnection(int epollFd, int eventFd)
         target_event.events = EPOLLIN;
         target_event.data.fd = newFd;
         epoll_ctl(epollFd, EPOLL_CTL_ADD, newFd, &target_event);
+		_logger.log(DEBUG, "Fd " + itoa(newFd) + " added to epoll instance - EPOLLIN");
     }
     return newFd;
 }
