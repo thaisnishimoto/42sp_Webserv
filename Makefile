@@ -1,4 +1,4 @@
-NAME = web_server
+NAME = webserv
 
 #flags
 CC = c++
