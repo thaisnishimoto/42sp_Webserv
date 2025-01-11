@@ -1,12 +1,11 @@
 #include "utils.hpp"
+#include <sstream>
 
-void    tolower(std::string& str)
-{
-    std::string::iterator it;
-    for (it = str.begin(); it != str.end(); ++it)
-    {
-        *it = std::tolower(*it);
-    }
+void tolower(std::string &str) {
+  std::string::iterator it;
+  for (it = str.begin(); it != str.end(); ++it) {
+    *it = std::tolower(*it);
+  }
 }
 
 std::string getNextLineRN(std::string& buffer)
@@ -50,4 +49,11 @@ std::string removeCRLF(std::string& fieldValue)
         fieldValue = fieldValue.substr(0, posCRLF);
     }
     return fieldValue;
+}
+
+std::string itoa(int n)
+{
+	std::ostringstream oss;
+    oss << n;
+    return oss.str();
 }

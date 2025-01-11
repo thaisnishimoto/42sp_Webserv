@@ -190,7 +190,7 @@ void WebServer::run(void)
     struct epoll_event _eventsList[MAX_EVENTS];
 
     // std::cout << "Main loop initiating..." << std::endl;
-	_logger.log(DEBUG, "Main loop initiatiating");
+	_logger.log(INFO, "webserv ready to receive connections");
     while (true)
     {
         fdsReady = epoll_wait(_epollFd, _eventsList, MAX_EVENTS, 1000);
@@ -215,6 +215,7 @@ void WebServer::run(void)
                     std::cerr << "Accept connection failed" << std::endl;
                 }
                 Connection connection(connectionFd);
+				_logger.log(INFO, "Connection established. fd: " + itoa(connection.connectionFd));
                 if (connection.error == true)
                 {
                     epoll_ctl(_epollFd, EPOLL_CTL_DEL, connectionFd, NULL);
