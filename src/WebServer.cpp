@@ -7,7 +7,7 @@
 
 static bool validateTransferEncoding(Request& request);
 
-WebServer::WebServer(void)
+WebServer::WebServer(void): _logger(DEBUG)
 {
     _implementedMethods.insert("GET");
     _implementedMethods.insert("POST");
@@ -189,7 +189,8 @@ void WebServer::run(void)
     int fdsReady;
     struct epoll_event _eventsList[MAX_EVENTS];
 
-    std::cout << "Main loop initiating..." << std::endl;
+    // std::cout << "Main loop initiating..." << std::endl;
+	_logger.log(DEBUG, "Main loop initiatiating");
     while (true)
     {
         fdsReady = epoll_wait(_epollFd, _eventsList, MAX_EVENTS, 1000);

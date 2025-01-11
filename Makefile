@@ -16,6 +16,7 @@ OBJS_DIR = objs/
 #source files without the main file
 SRC_FILES = main.cpp \
 			WebServer \
+			Logger \
 			VirtualServer \
 			Request \
 			Connection \
