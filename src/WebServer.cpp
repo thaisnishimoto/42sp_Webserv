@@ -461,18 +461,20 @@ void WebServer::parseVersion(std::string& requestLine, Request& request)
         request.badRequest = true;
         request.continueParsing = false;
     }
+	std::string str("HTTP/1.1");
+	_logger.log(DEBUG, "Parsed HTTP Version: " + str);
 }
 
 void WebServer::parseTarget(std::string& requestLine, Request& request)
 {
     std::string requestTarget = requestLine.substr(0, requestLine.find(" "));
-    std::cout << "request target: " << requestTarget << std::endl;
     if (requestTarget.size() == 0 || findRN(requestTarget) == true)
     {
         request.badRequest = true;
         request.continueParsing = false;
     }
     request.target = requestTarget;
+	_logger.log(DEBUG, "Parsed target: " + requestTarget);
     requestLine = requestLine.substr(requestTarget.size() + 1, std::string::npos);
     std::cout << "Remainder of request line: " << "'" << requestLine << "'" << std::endl;
 }
@@ -481,11 +483,11 @@ void WebServer::parseMethod(std::string& requestLine, Request& request)
 {
     std::string method;
     method = requestLine.substr(0, requestLine.find(" "));
-    std::cout << "method: " << method << std::endl;
     if (_implementedMethods.count(method) == 1 ||
         _unimplementedMethods.count(method) == 1)
     {
         request.method = method;
+		_logger.log(DEBUG, "Parsed method: " + method);
         request.parsedMethod = true;
     }
     else
