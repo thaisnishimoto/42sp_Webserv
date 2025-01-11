@@ -171,10 +171,10 @@ void WebServer::checkTimeouts(void)
 		if (now - it->second.lastActivity > TIMEOUT)
 		{
 			std::map<int, Connection>::iterator temp; 
-			std::cout << "Connection timed out. Fd: " << it->second.connectionFd << std::endl;
 			it->second.buffer.clear();
 			epoll_ctl(_epollFd, EPOLL_CTL_DEL, it->second.connectionFd, NULL);
 			close(it->second.connectionFd);
+			_logger.log(INFO, "Connection Timeout. Fd: " + itoa(it->second.connectionFd));
 			temp = it;
 			++it;
 			_connectionsMap.erase(temp);
@@ -248,9 +248,12 @@ void WebServer::run(void)
                     tmp += "origin: " + connection.response.headerFields["origin"] + "\r\n\r\n";
 					tmp += connection.response.body;
                     int bytesSent;
-                    std::cout << "Will call send now" << std::endl;
+					//TODO
+					//mechanic to check if whole response was sent
                     bytesSent = send(eventFd, tmp.c_str(), tmp.size(), 0);
                     std::cout << "Sent " << bytesSent << "bytes" << std::endl;
+
+					_logger.log(INFO, "Response sent. Fd: " + itoa(connection.connectionFd));
 
                     epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL);
                     _connectionsMap.erase(eventFd);
