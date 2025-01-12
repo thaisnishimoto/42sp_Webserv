@@ -2,7 +2,7 @@
 
 !pragma useVerticalIf on
 
-title Reacting to methods
+title Reacting to methods (NO CGI)
 
 start
 
@@ -31,6 +31,9 @@ split again
 		stop
 	else if (are permissions ok for the representation?) then (no)
 		: 403 Unauthroized;
+		stop
+	else if (does resource state prevent it from being deleted?) then (yes)
+		#pink: 409 Conflict;
 		stop
 	else if (has the resource been moved?) then (yes)
 		: 301 Moved Permanently;
