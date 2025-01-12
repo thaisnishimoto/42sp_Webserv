@@ -5,6 +5,7 @@
 #define TIMEOUT 60
 
 #include "Connection.hpp"
+#include "Logger.hpp"
 
 #include <stdexcept>
 #include <vector>
@@ -35,6 +36,8 @@ private:
 	//provisory
 	std::set<std::string> _implementedMethods;
 	std::set<std::string> _unimplementedMethods;
+
+	Logger _logger;
 
 
 public:

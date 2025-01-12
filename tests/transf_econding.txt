@@ -3,4 +3,4 @@ url = localhost:8081
 request = GET
 header = "Host: Server1"
 header = "Transfer-Encoding: chunked"
-data = "7\r\nMozilla\r\n11\r\nDeveloper Network\r\n0\r\n\r\n"
+data = "Mozilla Developer Network"

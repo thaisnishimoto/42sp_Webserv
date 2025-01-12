@@ -7,7 +7,7 @@
 
 static bool validateTransferEncoding(Request& request);
 
-WebServer::WebServer(void)
+WebServer::WebServer(void): _logger(DEBUG2)
 {
     _implementedMethods.insert("GET");
     _implementedMethods.insert("POST");
@@ -171,10 +171,10 @@ void WebServer::checkTimeouts(void)
 		if (now - it->second.lastActivity > TIMEOUT)
 		{
 			std::map<int, Connection>::iterator temp; 
-			std::cout << "Connection timed out. Fd: " << it->second.connectionFd << std::endl;
 			it->second.buffer.clear();
 			epoll_ctl(_epollFd, EPOLL_CTL_DEL, it->second.connectionFd, NULL);
 			close(it->second.connectionFd);
+			_logger.log(INFO, "Connection Timeout. Fd: " + itoa(it->second.connectionFd));
 			temp = it;
 			++it;
 			_connectionsMap.erase(temp);
@@ -189,7 +189,8 @@ void WebServer::run(void)
     int fdsReady;
     struct epoll_event _eventsList[MAX_EVENTS];
 
-    std::cout << "Main loop initiating..." << std::endl;
+    // std::cout << "Main loop initiating..." << std::endl;
+	_logger.log(INFO, "webserv ready to receive connections");
     while (true)
     {
         fdsReady = epoll_wait(_epollFd, _eventsList, MAX_EVENTS, 1000);
@@ -214,6 +215,7 @@ void WebServer::run(void)
                     std::cerr << "Accept connection failed" << std::endl;
                 }
                 Connection connection(connectionFd);
+				_logger.log(INFO, "Connection established. fd: " + itoa(connection.connectionFd));
                 if (connection.error == true)
                 {
                     epoll_ctl(_epollFd, EPOLL_CTL_DEL, connectionFd, NULL);
@@ -231,6 +233,7 @@ void WebServer::run(void)
                 if (connection.request.continueParsing == false)
                 {
                     modifyEventInterest(_epollFd, eventFd, EPOLLOUT);
+					_logger.log(DEBUG, "Fd " + itoa(eventFd) + " now on EPOLLOUT");
                 }
             }
             else if ((_eventsList[i].events & EPOLLOUT) == EPOLLOUT)
@@ -246,11 +249,15 @@ void WebServer::run(void)
                     tmp += "origin: " + connection.response.headerFields["origin"] + "\r\n\r\n";
 					tmp += connection.response.body;
                     int bytesSent;
-                    std::cout << "Will call send now" << std::endl;
+					//TODO
+					//mechanic to check if whole response was sent
                     bytesSent = send(eventFd, tmp.c_str(), tmp.size(), 0);
                     std::cout << "Sent " << bytesSent << "bytes" << std::endl;
 
+					_logger.log(INFO, "Response sent. Fd: " + itoa(connection.connectionFd));
+
                     epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL);
+					_logger.log(DEBUG, "Fd " + itoa(connection.connectionFd) + " deleted from epoll instance");
                     _connectionsMap.erase(eventFd);
                     close(eventFd);
                 }
@@ -336,15 +343,15 @@ void WebServer::parseRequest(Connection& connection)
     }
     if (request.parsedHeader == true)
     {
-        std::map<std::string, std::string>::iterator it, ite;
-        it = request.headerFields.begin();
-        ite = request.headerFields.end();
-        while (it != ite)
-        {
-            std::cout << "key: " << it->first << " | value: " << it->second << std::endl;
-            ++it;
-        }
-        std::cout << "---------------------------------" << std::endl;
+        // std::map<std::string, std::string>::iterator it, ite;
+        // it = request.headerFields.begin();
+        // ite = request.headerFields.end();
+        // while (it != ite)
+        // {
+        //     std::cout << "key: " << it->first << " | value: " << it->second << std::endl;
+        //     ++it;
+        // }
+        // std::cout << "---------------------------------" << std::endl;
         //line below for test
         // request.continueParsing = false;
     }
@@ -364,7 +371,7 @@ void WebServer::parseBody(std::string& connectionBuffer, Request& request)
 			//TODO
 			//Make sure that the sum of sizes of chunk
 			//does not exceed body limite size.
-			std::cout << "Request is chunked" << std::endl;
+			// std::cout << "Request is chunked" << std::endl;
 
 			std::string hexSize = getNextLineRN(connectionBuffer);
 			hexSize = removeCRLF(hexSize);
@@ -373,11 +380,11 @@ void WebServer::parseBody(std::string& connectionBuffer, Request& request)
 			std::istringstream iss(hexSize);
 			if (iss >> std::hex >> decSize && iss.eof() != false)
 			{
-				std::cout << "Chunk size: "<< decSize << std::endl;
+				// std::cout << "Chunk size: "<< decSize << std::endl;
 			}
 			else
 			{
-				std::cout << "Invalid chunk size" << std::endl;
+				// std::cout << "Invalid chunk size" << std::endl;
 				request.badRequest = true;
 				request.continueParsing = false;
 			    break;
@@ -387,7 +394,7 @@ void WebServer::parseBody(std::string& connectionBuffer, Request& request)
 			chunk = removeCRLF(chunk);
 			if (chunk.size() != static_cast<size_t>(decSize))
 			{
-				std::cout << "Sizes don't match!" << std::endl;
+				// std::cout << "Sizes don't match!" << std::endl;
 				request.badRequest = true;
 				request.continueParsing = false;
 			    break;
@@ -398,6 +405,7 @@ void WebServer::parseBody(std::string& connectionBuffer, Request& request)
 			{
 				request.continueParsing = false;
 				request.parsedBody = true;
+				_logger.log(DEBUG2, "Parsed body: " + request.body);
 				break;
 			}
 		}
@@ -407,6 +415,7 @@ void WebServer::parseBody(std::string& connectionBuffer, Request& request)
     {
         request.body.append(connectionBuffer, 0, request.contentLength);
         connectionBuffer = connectionBuffer.substr(request.contentLength);
+		_logger.log(DEBUG2, "Parsed body: " + request.body);
         request.parsedBody = true;
         request.continueParsing = false;
     }
@@ -433,7 +442,7 @@ void WebServer::parseRequestLine(std::string& connectionBuffer, Request& request
     {
         return;
     }
-    std::cout << "request line: " << requestLine << std::endl;
+    // std::cout << "request line: " << requestLine << std::endl;
     std::string requestLineCpy = requestLine;
     parseMethod(requestLineCpy, request);
     if (request.continueParsing == false)
@@ -454,31 +463,33 @@ void WebServer::parseVersion(std::string& requestLine, Request& request)
         request.badRequest = true;
         request.continueParsing = false;
     }
+	std::string str("HTTP/1.1");
+	_logger.log(DEBUG, "Parsed HTTP Version: " + str);
 }
 
 void WebServer::parseTarget(std::string& requestLine, Request& request)
 {
     std::string requestTarget = requestLine.substr(0, requestLine.find(" "));
-    std::cout << "request target: " << requestTarget << std::endl;
     if (requestTarget.size() == 0 || findRN(requestTarget) == true)
     {
         request.badRequest = true;
         request.continueParsing = false;
     }
     request.target = requestTarget;
+	_logger.log(DEBUG, "Parsed target: " + requestTarget);
     requestLine = requestLine.substr(requestTarget.size() + 1, std::string::npos);
-    std::cout << "Remainder of request line: " << "'" << requestLine << "'" << std::endl;
+    // std::cout << "Remainder of request line: " << "'" << requestLine << "'" << std::endl;
 }
 
 void WebServer::parseMethod(std::string& requestLine, Request& request)
 {
     std::string method;
     method = requestLine.substr(0, requestLine.find(" "));
-    std::cout << "method: " << method << std::endl;
     if (_implementedMethods.count(method) == 1 ||
         _unimplementedMethods.count(method) == 1)
     {
         request.method = method;
+		_logger.log(DEBUG, "Parsed method: " + method);
         request.parsedMethod = true;
     }
     else
@@ -488,14 +499,14 @@ void WebServer::parseMethod(std::string& requestLine, Request& request)
     }
 
     requestLine = requestLine.substr(method.size() + 1, std::string::npos);
-    std::cout << "Remainder of request line: " << "'" << requestLine << "'" << std::endl;
+    // std::cout << "Remainder of request line: " << "'" << requestLine << "'" << std::endl;
     //next method will need to verify if number of whitespaces are adequate
 }
 
 void WebServer::parseHeader(std::string& connectionBuffer, Request& request)
 {
-    std::cout << "inside parseHeader" << std::endl;
-    std::cout << "buffer: " << connectionBuffer << std::endl;
+    // std::cout << "inside parseHeader" << std::endl;
+    // std::cout << "buffer: " << connectionBuffer << std::endl;
     std::string fieldLine = getNextLineRN(connectionBuffer);
 
     while (fieldLine.empty() == false && fieldLine != "\r\n")
@@ -510,8 +521,9 @@ void WebServer::parseHeader(std::string& connectionBuffer, Request& request)
 
         std::string fieldValues = captureFieldValues(fieldLine);
 
-        std::cout << "Field-name: " << fieldName << std::endl;
-        std::cout << "Field-value: " << fieldValues << std::endl;
+        // std::cout << "Field-name: " << fieldName << std::endl;
+        // std::cout << "Field-value: " << fieldValues << std::endl;
+		_logger.log(DEBUG, "Parsed header line -> " + fieldName + ": " + fieldValues);
 
         tolower(fieldName);
         std::pair<std::string, std::string> tmp(fieldName, fieldValues);
@@ -558,7 +570,7 @@ std::string WebServer::captureFieldValues(std::string& fieldLine)
 
     std::string fieldLineTail;
     fieldLineTail = fieldLine.substr(colonPos + 1, std::string::npos);
-    std::cout << "FieldLine Tail: " << fieldLineTail << std::endl;
+    // std::cout << "FieldLine Tail: " << fieldLineTail << std::endl;
 
     std::string fieldValues;
     while (true)
@@ -573,12 +585,12 @@ std::string WebServer::captureFieldValues(std::string& fieldLine)
         }
         std::string tmp;
         tmp = fieldLineTail.substr(0, commaPos);
-        std::cout << "Pre trim tmp: " << tmp << std::endl;
+        // std::cout << "Pre trim tmp: " << tmp << std::endl;
         tmp = trim(tmp, " \t") + ", ";
-        std::cout << "Post trim tmp: " << tmp << std::endl;
+        // std::cout << "Post trim tmp: " << tmp << std::endl;
         fieldValues += tmp;
         fieldLineTail = fieldLineTail.substr(commaPos + 1, std::string::npos);
-        std::cout << "fieldLineTail: " << fieldLineTail << std::endl;
+        // std::cout << "fieldLineTail: " << fieldLineTail << std::endl;
     }
     return fieldValues;
 }
@@ -730,9 +742,11 @@ int WebServer::consumeNetworkBuffer(int connectionFd, std::string& connectionBuf
 	//TODO
 	//Erase connection from _connectionsMap
         std::cout << "Connection closed by the client" << std::endl;
+		_logger.log(INFO, "Fd " + itoa(connectionFd) + ". Connection closed by client.");
         connectionBuffer.clear();
         // _connectionBuffers.erase(connectionFd);
         epoll_ctl(_epollFd, EPOLL_CTL_DEL, connectionFd, NULL);
+		_logger.log(DEBUG, "Fd " + itoa(connectionFd) + " deleted from epoll instance");
         close(connectionFd);
         return 1;
     }
@@ -751,6 +765,7 @@ int WebServer::acceptConnection(int epollFd, int eventFd)
         target_event.events = EPOLLIN;
         target_event.data.fd = newFd;
         epoll_ctl(epollFd, EPOLL_CTL_ADD, newFd, &target_event);
+		_logger.log(DEBUG, "Fd " + itoa(newFd) + " added to epoll instance - EPOLLIN");
     }
     return newFd;
 }
