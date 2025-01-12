@@ -7,7 +7,7 @@
 
 static bool validateTransferEncoding(Request& request);
 
-WebServer::WebServer(void): _logger(DEBUG)
+WebServer::WebServer(void): _logger(DEBUG2)
 {
     _implementedMethods.insert("GET");
     _implementedMethods.insert("POST");
@@ -371,7 +371,7 @@ void WebServer::parseBody(std::string& connectionBuffer, Request& request)
 			//TODO
 			//Make sure that the sum of sizes of chunk
 			//does not exceed body limite size.
-			std::cout << "Request is chunked" << std::endl;
+			// std::cout << "Request is chunked" << std::endl;
 
 			std::string hexSize = getNextLineRN(connectionBuffer);
 			hexSize = removeCRLF(hexSize);
@@ -380,11 +380,11 @@ void WebServer::parseBody(std::string& connectionBuffer, Request& request)
 			std::istringstream iss(hexSize);
 			if (iss >> std::hex >> decSize && iss.eof() != false)
 			{
-				std::cout << "Chunk size: "<< decSize << std::endl;
+				// std::cout << "Chunk size: "<< decSize << std::endl;
 			}
 			else
 			{
-				std::cout << "Invalid chunk size" << std::endl;
+				// std::cout << "Invalid chunk size" << std::endl;
 				request.badRequest = true;
 				request.continueParsing = false;
 			    break;
@@ -394,7 +394,7 @@ void WebServer::parseBody(std::string& connectionBuffer, Request& request)
 			chunk = removeCRLF(chunk);
 			if (chunk.size() != static_cast<size_t>(decSize))
 			{
-				std::cout << "Sizes don't match!" << std::endl;
+				// std::cout << "Sizes don't match!" << std::endl;
 				request.badRequest = true;
 				request.continueParsing = false;
 			    break;
@@ -405,6 +405,7 @@ void WebServer::parseBody(std::string& connectionBuffer, Request& request)
 			{
 				request.continueParsing = false;
 				request.parsedBody = true;
+				_logger.log(DEBUG2, "Parsed body: " + request.body);
 				break;
 			}
 		}
@@ -414,6 +415,7 @@ void WebServer::parseBody(std::string& connectionBuffer, Request& request)
     {
         request.body.append(connectionBuffer, 0, request.contentLength);
         connectionBuffer = connectionBuffer.substr(request.contentLength);
+		_logger.log(DEBUG2, "Parsed body: " + request.body);
         request.parsedBody = true;
         request.continueParsing = false;
     }
