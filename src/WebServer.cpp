@@ -343,15 +343,15 @@ void WebServer::parseRequest(Connection& connection)
     }
     if (request.parsedHeader == true)
     {
-        std::map<std::string, std::string>::iterator it, ite;
-        it = request.headerFields.begin();
-        ite = request.headerFields.end();
-        while (it != ite)
-        {
-            std::cout << "key: " << it->first << " | value: " << it->second << std::endl;
-            ++it;
-        }
-        std::cout << "---------------------------------" << std::endl;
+        // std::map<std::string, std::string>::iterator it, ite;
+        // it = request.headerFields.begin();
+        // ite = request.headerFields.end();
+        // while (it != ite)
+        // {
+        //     std::cout << "key: " << it->first << " | value: " << it->second << std::endl;
+        //     ++it;
+        // }
+        // std::cout << "---------------------------------" << std::endl;
         //line below for test
         // request.continueParsing = false;
     }
@@ -440,7 +440,7 @@ void WebServer::parseRequestLine(std::string& connectionBuffer, Request& request
     {
         return;
     }
-    std::cout << "request line: " << requestLine << std::endl;
+    // std::cout << "request line: " << requestLine << std::endl;
     std::string requestLineCpy = requestLine;
     parseMethod(requestLineCpy, request);
     if (request.continueParsing == false)
@@ -476,7 +476,7 @@ void WebServer::parseTarget(std::string& requestLine, Request& request)
     request.target = requestTarget;
 	_logger.log(DEBUG, "Parsed target: " + requestTarget);
     requestLine = requestLine.substr(requestTarget.size() + 1, std::string::npos);
-    std::cout << "Remainder of request line: " << "'" << requestLine << "'" << std::endl;
+    // std::cout << "Remainder of request line: " << "'" << requestLine << "'" << std::endl;
 }
 
 void WebServer::parseMethod(std::string& requestLine, Request& request)
@@ -497,14 +497,14 @@ void WebServer::parseMethod(std::string& requestLine, Request& request)
     }
 
     requestLine = requestLine.substr(method.size() + 1, std::string::npos);
-    std::cout << "Remainder of request line: " << "'" << requestLine << "'" << std::endl;
+    // std::cout << "Remainder of request line: " << "'" << requestLine << "'" << std::endl;
     //next method will need to verify if number of whitespaces are adequate
 }
 
 void WebServer::parseHeader(std::string& connectionBuffer, Request& request)
 {
-    std::cout << "inside parseHeader" << std::endl;
-    std::cout << "buffer: " << connectionBuffer << std::endl;
+    // std::cout << "inside parseHeader" << std::endl;
+    // std::cout << "buffer: " << connectionBuffer << std::endl;
     std::string fieldLine = getNextLineRN(connectionBuffer);
 
     while (fieldLine.empty() == false && fieldLine != "\r\n")
@@ -519,8 +519,9 @@ void WebServer::parseHeader(std::string& connectionBuffer, Request& request)
 
         std::string fieldValues = captureFieldValues(fieldLine);
 
-        std::cout << "Field-name: " << fieldName << std::endl;
-        std::cout << "Field-value: " << fieldValues << std::endl;
+        // std::cout << "Field-name: " << fieldName << std::endl;
+        // std::cout << "Field-value: " << fieldValues << std::endl;
+		_logger.log(DEBUG, "Parsed header line -> " + fieldName + ": " + fieldValues);
 
         tolower(fieldName);
         std::pair<std::string, std::string> tmp(fieldName, fieldValues);
@@ -567,7 +568,7 @@ std::string WebServer::captureFieldValues(std::string& fieldLine)
 
     std::string fieldLineTail;
     fieldLineTail = fieldLine.substr(colonPos + 1, std::string::npos);
-    std::cout << "FieldLine Tail: " << fieldLineTail << std::endl;
+    // std::cout << "FieldLine Tail: " << fieldLineTail << std::endl;
 
     std::string fieldValues;
     while (true)
@@ -582,12 +583,12 @@ std::string WebServer::captureFieldValues(std::string& fieldLine)
         }
         std::string tmp;
         tmp = fieldLineTail.substr(0, commaPos);
-        std::cout << "Pre trim tmp: " << tmp << std::endl;
+        // std::cout << "Pre trim tmp: " << tmp << std::endl;
         tmp = trim(tmp, " \t") + ", ";
-        std::cout << "Post trim tmp: " << tmp << std::endl;
+        // std::cout << "Post trim tmp: " << tmp << std::endl;
         fieldValues += tmp;
         fieldLineTail = fieldLineTail.substr(commaPos + 1, std::string::npos);
-        std::cout << "fieldLineTail: " << fieldLineTail << std::endl;
+        // std::cout << "fieldLineTail: " << fieldLineTail << std::endl;
     }
     return fieldValues;
 }
