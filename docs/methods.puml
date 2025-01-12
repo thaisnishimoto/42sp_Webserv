@@ -24,6 +24,28 @@ split
 	endif
 split again
 	:POST;
+	if (found a representation of the target resource?) then (no)
+		: 404 not found;
+		stop
+	else if (are permissions ok for the representation?) then (no)
+		: 403 Unauthroized;
+		stop
+	else if (has the resource been moved?) then (yes)
+		: 301 Moved Permanently;
+		stop
+	else (no)
+		split
+			: 200 OK;
+			: append representation of the result do the response body;
+		split again
+			: 201 Created;
+			: Header Location with the URI of the newly created resources;
+		split again
+			: 204 No Content;
+			: Response has no body;
+		end split
+	endif
+
 split again
 	:DELETE;
 	if (found a representation of the target resource?) then (no)
@@ -39,12 +61,12 @@ split again
 		: 301 Moved Permanently;
 		stop
 	else (no)
-		if (200 or 204?) then (200)
+		split
 			: 200 OK;
 			: append content of resource to response body;
-		else (204)
+			split again
 			: 204 No Content;
-		endif
+		end split
 	endif
 
 end split
