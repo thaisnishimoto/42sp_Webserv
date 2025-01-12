@@ -26,6 +26,24 @@ split again
 	:POST;
 split again
 	:DELETE;
+	if (found a representation of the target resource?) then (no)
+		: 404 not found;
+		stop
+	else if (are permissions ok for the representation?) then (no)
+		: 403 Unauthroized;
+		stop
+	else if (has the resource been moved?) then (yes)
+		: 301 Moved Permanently;
+		stop
+	else (no)
+		if (200 or 204?) then (200)
+			: 200 OK;
+			: append content of resource to response body;
+		else (204)
+			: 204 No Content;
+		endif
+	endif
+
 end split
 stop
 
