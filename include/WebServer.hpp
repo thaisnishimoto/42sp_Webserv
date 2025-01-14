@@ -3,6 +3,7 @@
 
 #define MAX_EVENTS 10
 #define TIMEOUT 60
+#define CLIENT_MAX_BODY_SIZE 5
 
 #include "Connection.hpp"
 #include "Logger.hpp"
@@ -74,6 +75,7 @@ public:
 	void fillResponse(Connection& connection);
 
 	int consumeNetworkBuffer(int connectionFd, std::string& connectionBuffer);
+
 };
 
 #endif //_WERBSERVER_HPP_

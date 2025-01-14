@@ -1,4 +1,5 @@
 #include "WebServer.hpp"
+#include "Logger.hpp"
 #include "utils.hpp"
 #include <cstdlib>
 #include <fcntl.h>
@@ -164,13 +165,13 @@ void WebServer::startListening(void)
 void WebServer::checkTimeouts(void)
 {
 	time_t now = time(NULL);
-	std::map<int, Connection>::iterator it = _connectionsMap.begin(); 
-	std::map<int, Connection>::iterator ite = _connectionsMap.end(); 
+	std::map<int, Connection>::iterator it = _connectionsMap.begin();
+	std::map<int, Connection>::iterator ite = _connectionsMap.end();
 	while (it != ite)
 	{
 		if (now - it->second.lastActivity > TIMEOUT)
 		{
-			std::map<int, Connection>::iterator temp; 
+			std::map<int, Connection>::iterator temp;
 			it->second.buffer.clear();
 			epoll_ctl(_epollFd, EPOLL_CTL_DEL, it->second.connectionFd, NULL);
 			close(it->second.connectionFd);
@@ -612,7 +613,7 @@ static bool validateContentLength(Request& request)
     {
         return false;
     }
-	
+
 	//checking if we receive only digits
 	for (std::string::const_iterator it = fieldValue.begin();
 		it != fieldValue.end(); ++it)
@@ -689,6 +690,24 @@ static bool hasCLAndTEHeaders(Request& request)
     return result;
 }
 
+static bool validateContentLengthSize(Request& request)
+{
+   if (request.headerFields.count("content-length") == 0)
+  {
+      return true;
+  }
+  else
+  {
+    if(request.contentLength > CLIENT_MAX_BODY_SIZE)
+    {
+        return false;
+    }
+    else {
+        return true;
+    }
+  }
+}
+
 void WebServer::validateHeader(Request& request)
 {
     if (validateContentLength(request) == false)
@@ -721,7 +740,12 @@ void WebServer::validateHeader(Request& request)
         request.continueParsing = false;
         return;
     }
-
+    if (validateContentLengthSize(request) == false)
+    {
+        _logger.log(DEBUG, "Request body too large");
+        request.bodyTooLarge = true;
+        request.continueParsing = false;
+    }
     request.validatedHeader = true;
 }
 
