@@ -377,11 +377,19 @@ void WebServer::parseBody(std::string& connectionBuffer, Request& request)
 			std::string hexSize = getNextLineRN(connectionBuffer);
 			hexSize = removeCRLF(hexSize);
 
+			//TODO validate negative value
 			long decSize;
 			std::istringstream iss(hexSize);
 			if (iss >> std::hex >> decSize && iss.eof() != false)
 			{
-				// std::cout << "Chunk size: "<< decSize << std::endl;
+			    request.contentLength += static_cast<size_t>(decSize);
+				if (request.contentLength > CLIENT_MAX_BODY_SIZE)
+				{
+				    _logger.log(DEBUG, "Request body too large");
+				    request.bodyTooLarge = true;
+					request.continueParsing = false;
+					break;
+				}
 			}
 			else
 			{
