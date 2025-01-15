@@ -291,6 +291,11 @@ void WebServer::fillResponse(Connection& connection)
         response.statusCode = "501";
         response.reasonPhrase = "Not Implemented";
     }
+    else if (request.bodyTooLarge == true)
+    {
+        response.statusCode = "413";
+        response.reasonPhrase = "Content Too Large";
+    }
     else
     {
         identifyVirtualServer(connection);
