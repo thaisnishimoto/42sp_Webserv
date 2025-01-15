@@ -1,4 +1,5 @@
 #include "WebServer.hpp"
+#include "Logger.hpp"
 #include "utils.hpp"
 #include <cstdlib>
 #include <fcntl.h>
@@ -164,13 +165,13 @@ void WebServer::startListening(void)
 void WebServer::checkTimeouts(void)
 {
 	time_t now = time(NULL);
-	std::map<int, Connection>::iterator it = _connectionsMap.begin(); 
-	std::map<int, Connection>::iterator ite = _connectionsMap.end(); 
+	std::map<int, Connection>::iterator it = _connectionsMap.begin();
+	std::map<int, Connection>::iterator ite = _connectionsMap.end();
 	while (it != ite)
 	{
 		if (now - it->second.lastActivity > TIMEOUT)
 		{
-			std::map<int, Connection>::iterator temp; 
+			std::map<int, Connection>::iterator temp;
 			it->second.buffer.clear();
 			epoll_ctl(_epollFd, EPOLL_CTL_DEL, it->second.connectionFd, NULL);
 			close(it->second.connectionFd);
@@ -290,6 +291,11 @@ void WebServer::fillResponse(Connection& connection)
         response.statusCode = "501";
         response.reasonPhrase = "Not Implemented";
     }
+    else if (request.bodyTooLarge == true)
+    {
+        response.statusCode = "413";
+        response.reasonPhrase = "Content Too Large";
+    }
     else
     {
         identifyVirtualServer(connection);
@@ -368,23 +374,33 @@ void WebServer::parseBody(std::string& connectionBuffer, Request& request)
 	{
 		while(true)
 		{
-			//TODO
-			//Make sure that the sum of sizes of chunk
-			//does not exceed body limite size.
-			// std::cout << "Request is chunked" << std::endl;
-
 			std::string hexSize = getNextLineRN(connectionBuffer);
 			hexSize = removeCRLF(hexSize);
 
-			long decSize;
+			if (hexSize.find('-') != std::string::npos || hexSize.length() > 16)
+			{
+			   _logger.log(DEBUG, "Invalid chunk size");
+				request.badRequest = true;
+				request.continueParsing = false;
+				break;
+			}
+
+			unsigned long decSize = 0;
 			std::istringstream iss(hexSize);
 			if (iss >> std::hex >> decSize && iss.eof() != false)
 			{
-				// std::cout << "Chunk size: "<< decSize << std::endl;
+			    request.contentLength += static_cast<size_t>(decSize);
+				if (request.contentLength > CLIENT_MAX_BODY_SIZE)
+				{
+				    _logger.log(DEBUG, "Request body too large");
+				    request.bodyTooLarge = true;
+					request.continueParsing = false;
+					break;
+				}
 			}
 			else
 			{
-				// std::cout << "Invalid chunk size" << std::endl;
+                _logger.log(DEBUG, "Invalid chunk size format");
 				request.badRequest = true;
 				request.continueParsing = false;
 			    break;
@@ -394,7 +410,7 @@ void WebServer::parseBody(std::string& connectionBuffer, Request& request)
 			chunk = removeCRLF(chunk);
 			if (chunk.size() != static_cast<size_t>(decSize))
 			{
-				// std::cout << "Sizes don't match!" << std::endl;
+			    _logger.log(DEBUG, "Reported chunk size does not match actual chunk size");
 				request.badRequest = true;
 				request.continueParsing = false;
 			    break;
@@ -612,7 +628,7 @@ static bool validateContentLength(Request& request)
     {
         return false;
     }
-	
+
 	//checking if we receive only digits
 	for (std::string::const_iterator it = fieldValue.begin();
 		it != fieldValue.end(); ++it)
@@ -689,6 +705,24 @@ static bool hasCLAndTEHeaders(Request& request)
     return result;
 }
 
+static bool validateContentLengthSize(Request& request)
+{
+   if (request.headerFields.count("content-length") == 0)
+  {
+      return true;
+  }
+  else
+  {
+    if(request.contentLength > CLIENT_MAX_BODY_SIZE)
+    {
+        return false;
+    }
+    else {
+        return true;
+    }
+  }
+}
+
 void WebServer::validateHeader(Request& request)
 {
     if (validateContentLength(request) == false)
@@ -721,7 +755,12 @@ void WebServer::validateHeader(Request& request)
         request.continueParsing = false;
         return;
     }
-
+    if (validateContentLengthSize(request) == false)
+    {
+        _logger.log(DEBUG, "Request body too large");
+        request.bodyTooLarge = true;
+        request.continueParsing = false;
+    }
     request.validatedHeader = true;
 }
 

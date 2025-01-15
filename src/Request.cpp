@@ -7,6 +7,7 @@ Request::Request(void)
 	parsedHeader = false;
 	validatedHeader = false;
 	parsedBody = false;
+	bodyTooLarge = false;
 	badRequest = false;
 	continueParsing = true;
 	contentLength = 0;

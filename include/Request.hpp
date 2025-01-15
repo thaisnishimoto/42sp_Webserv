@@ -21,7 +21,8 @@ public:
 	bool validatedHeader;
 
 	bool badRequest;
-	
+	bool bodyTooLarge;
+
 	bool continueParsing;
 
 	bool isChunked;
