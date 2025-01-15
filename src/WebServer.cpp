@@ -369,16 +369,18 @@ void WebServer::parseBody(std::string& connectionBuffer, Request& request)
 	{
 		while(true)
 		{
-			//TODO
-			//Make sure that the sum of sizes of chunk
-			//does not exceed body limite size.
-			// std::cout << "Request is chunked" << std::endl;
-
 			std::string hexSize = getNextLineRN(connectionBuffer);
 			hexSize = removeCRLF(hexSize);
 
-			//TODO validate negative value
-			long decSize;
+			if (hexSize.find('-') != std::string::npos || hexSize.length() > 16)
+			{
+			   _logger.log(DEBUG, "Invalid chunk size");
+				request.badRequest = true;
+				request.continueParsing = false;
+				break;
+			}
+
+			unsigned long decSize = 0;
 			std::istringstream iss(hexSize);
 			if (iss >> std::hex >> decSize && iss.eof() != false)
 			{
@@ -393,7 +395,7 @@ void WebServer::parseBody(std::string& connectionBuffer, Request& request)
 			}
 			else
 			{
-				// std::cout << "Invalid chunk size" << std::endl;
+                _logger.log(DEBUG, "Invalid chunk size format");
 				request.badRequest = true;
 				request.continueParsing = false;
 			    break;
@@ -403,7 +405,7 @@ void WebServer::parseBody(std::string& connectionBuffer, Request& request)
 			chunk = removeCRLF(chunk);
 			if (chunk.size() != static_cast<size_t>(decSize))
 			{
-				// std::cout << "Sizes don't match!" << std::endl;
+			    _logger.log(DEBUG, "Reported chunk size does not match actual chunk size");
 				request.badRequest = true;
 				request.continueParsing = false;
 			    break;

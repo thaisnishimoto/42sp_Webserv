@@ -3,7 +3,7 @@
 
 #define MAX_EVENTS 10
 #define TIMEOUT 60
-#define CLIENT_MAX_BODY_SIZE 5
+#define CLIENT_MAX_BODY_SIZE 1048576
 
 #include "Connection.hpp"
 #include "Logger.hpp"
