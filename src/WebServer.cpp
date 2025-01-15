@@ -240,28 +240,30 @@ void WebServer::run(void)
             else if ((_eventsList[i].events & EPOLLOUT) == EPOLLOUT)
             {
                 Connection& connection = _connectionsMap[eventFd];
-                fillResponse(connection);
-                if (connection.response.isReady == true)
+                if (connection.response.isReady == false)
                 {
-                    std::string tmp;
-                    tmp = "HTTP/1.1 " + connection.response.statusCode + " " + connection.response.reasonPhrase +
-                        "\r\n";
-					tmp += "content-length: 10\r\n";
-                    tmp += "origin: " + connection.response.headerFields["origin"] + "\r\n\r\n";
-					tmp += connection.response.body;
-                    int bytesSent;
-					//TODO
-					//mechanic to check if whole response was sent
-                    bytesSent = send(eventFd, tmp.c_str(), tmp.size(), 0);
-                    std::cout << "Sent " << bytesSent << "bytes" << std::endl;
+                	fillResponse(connection);
+			buildResponseBuffer(connection);
+    			connection.response.isReady = true;
+		}
+		int bytesSent;
+		std::string& buf = connection.responseBuffer;
+		//TODO
+		//mechanic to check if whole response was sent
+		bytesSent = send(eventFd, buf.c_str(), buf.size(), 0);
+		if (bytesSent < static_cast<int>(buf.size()))
+		{
+			std::cout << "Sent " << bytesSent << "bytes" << std::endl;
+			buf = buf.substr(bytesSent);
+			continue;
+		}
 
-					_logger.log(INFO, "Response sent. Fd: " + itoa(connection.connectionFd));
+		_logger.log(INFO, "Response sent. Fd: " + itoa(connection.connectionFd));
 
-                    epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL);
-					_logger.log(DEBUG, "Fd " + itoa(connection.connectionFd) + " deleted from epoll instance");
-                    _connectionsMap.erase(eventFd);
-                    close(eventFd);
-                }
+		epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL);
+		_logger.log(DEBUG, "Fd " + itoa(connection.connectionFd) + " deleted from epoll instance");
+		_connectionsMap.erase(eventFd);
+		close(eventFd);
                 //codigo para response
             }
         }
@@ -303,9 +305,17 @@ void WebServer::fillResponse(Connection& connection)
         response.reasonPhrase = "OK";
         std::pair<std::string, std::string> pair("origin", connection.virtualServer->name);
         response.headerFields.insert(pair);
-		response.body = request.body;
+	response.body = request.body;
     }
-    response.isReady = true;
+}
+
+void WebServer::buildResponseBuffer(Connection& connection)
+{
+	connection.responseBuffer = "HTTP/1.1 " + connection.response.statusCode + " " + connection.response.reasonPhrase +
+	"\r\n";
+	connection.responseBuffer += "content-length: 10\r\n";
+	connection.responseBuffer += "origin: " + connection.response.headerFields["origin"] + "\r\n\r\n";
+	connection.responseBuffer += connection.response.body;
 }
 
 // WIP

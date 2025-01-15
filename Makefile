@@ -19,6 +19,7 @@ SRC_FILES = main.cpp \
 			Logger \
 			VirtualServer \
 			Request \
+			Response \
 			Connection \
 			utils
 

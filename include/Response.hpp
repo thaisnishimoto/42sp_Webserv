@@ -7,6 +7,7 @@
 class Response
 {
 public:
+	Response(void);
 	std::string statusLine;
 	std::map<std::string, std::string> headerFields;
 	std::string body;
