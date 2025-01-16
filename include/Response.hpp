@@ -6,16 +6,16 @@
 
 class Response
 {
-public:
-	Response(void);
-	std::string statusLine;
-	std::map<std::string, std::string> headerFields;
-	std::string body;
+  public:
+    Response(void);
+    std::string statusLine;
+    std::map<std::string, std::string> headerFields;
+    std::string body;
 
-	std::string statusCode;
-	std::string reasonPhrase;
+    std::string statusCode;
+    std::string reasonPhrase;
 
-	bool isReady;
+    bool isReady;
 };
 
 #endif //_RESPONSE_HPP_

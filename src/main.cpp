@@ -4,12 +4,13 @@
 
 int main(void)
 {
-    try{
+    try
+    {
         WebServer webServer;
         webServer.init();
         webServer.run();
     }
-    catch(std::exception &e)
+    catch (std::exception& e)
     {
         std::cerr << e.what() << std::endl;
         return 1;

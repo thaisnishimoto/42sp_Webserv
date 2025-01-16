@@ -6,11 +6,11 @@
 
 class VirtualServer
 {
-public:
-	VirtualServer(int port, std::string name);
+  public:
+    VirtualServer(int port, std::string name);
 
-	uint16_t port;
-	std::string name;
+    uint16_t port;
+    std::string name;
 };
 
 #endif //_VIRTUALSERVER_HPP_
