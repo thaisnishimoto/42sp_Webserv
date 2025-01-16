@@ -246,10 +246,9 @@ void WebServer::run(void)
 			buildResponseBuffer(connection);
     			connection.response.isReady = true;
 		}
+
 		int bytesSent;
 		std::string& buf = connection.responseBuffer;
-		//TODO
-		//mechanic to check if whole response was sent
 		bytesSent = send(eventFd, buf.c_str(), buf.size(), 0);
 		if (bytesSent == -1)
 		{
@@ -274,7 +273,6 @@ void WebServer::run(void)
 		_logger.log(DEBUG, "Fd " + itoa(connection.connectionFd) + " deleted from epoll instance");
 		_connectionsMap.erase(eventFd);
 		close(eventFd);
-                //codigo para response
             }
         }
     }
@@ -321,18 +319,11 @@ void WebServer::fillResponse(Connection& connection)
 
 void WebServer::buildResponseBuffer(Connection& connection)
 {
-    std::string lixo = "TESTE ";
-
-    for (int i = 0; i < 20; i++)
-    {
-       lixo += lixo;
-    }
-	connection.responseBuffer = "HTTP/1.1 " + connection.response.statusCode + " " + connection.response.reasonPhrase +
+   	connection.responseBuffer = "HTTP/1.1 " + connection.response.statusCode + " " + connection.response.reasonPhrase +
 	"\r\n";
-	connection.responseBuffer += "content-length: " + itoa(lixo.size()) + "\r\n";
+	connection.responseBuffer += "content-length: 10\r\n";
 	connection.responseBuffer += "origin: " + connection.response.headerFields["origin"] + "\r\n\r\n";
-	connection.responseBuffer += lixo;
-	// connection.responseBuffer += connection.response.body;
+	connection.responseBuffer += connection.response.body;
 }
 
 // WIP
