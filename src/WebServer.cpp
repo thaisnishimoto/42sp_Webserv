@@ -253,11 +253,12 @@ void WebServer::run(void)
 		bytesSent = send(eventFd, buf.c_str(), buf.size(), 0);
 		if (bytesSent < static_cast<int>(buf.size()))
 		{
-			std::cout << "Sent " << bytesSent << "bytes" << std::endl;
-			buf = buf.substr(bytesSent);
+		    buf = buf.substr(bytesSent);
+		    _logger.log(DEBUG, "Partial response sent. Sent: " + itoa(bytesSent) + ". Remaining: " + itoa(buf.size()));
 			continue;
 		}
-
+        buf = buf.substr(bytesSent);
+        _logger.log(DEBUG, "Final part of response sent. Sent: " + itoa(bytesSent) + ". Remaining: " + itoa(buf.size()));
 		_logger.log(INFO, "Response sent. Fd: " + itoa(connection.connectionFd));
 
 		epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL);
@@ -311,11 +312,18 @@ void WebServer::fillResponse(Connection& connection)
 
 void WebServer::buildResponseBuffer(Connection& connection)
 {
+    std::string lixo = "TESTE ";
+
+    for (int i = 0; i < 20; i++)
+    {
+       lixo += lixo;
+    }
 	connection.responseBuffer = "HTTP/1.1 " + connection.response.statusCode + " " + connection.response.reasonPhrase +
 	"\r\n";
-	connection.responseBuffer += "content-length: 10\r\n";
+	connection.responseBuffer += "content-length: " + itoa(lixo.size()) + "\r\n";
 	connection.responseBuffer += "origin: " + connection.response.headerFields["origin"] + "\r\n\r\n";
-	connection.responseBuffer += connection.response.body;
+	connection.responseBuffer += lixo;
+	// connection.responseBuffer += connection.response.body;
 }
 
 // WIP
