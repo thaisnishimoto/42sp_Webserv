@@ -251,6 +251,15 @@ void WebServer::run(void)
 		//TODO
 		//mechanic to check if whole response was sent
 		bytesSent = send(eventFd, buf.c_str(), buf.size(), 0);
+		if (bytesSent == -1)
+		{
+		    _logger.log(ERROR, "Connection closed due to send error");
+			epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL);
+			_connectionsMap.erase(eventFd);
+			_logger.log(DEBUG, "Connection removed from connectionsMap. Fd: " + itoa(eventFd));
+			close(eventFd);
+			continue;
+		}
 		if (bytesSent < static_cast<int>(buf.size()))
 		{
 		    buf = buf.substr(bytesSent);
