@@ -72,6 +72,7 @@ public:
 
 	void parseBody(std::string& connectionBuffer, Request& request);
 
+	void buildResponseBuffer(Connection& connection);
 	void fillResponse(Connection& connection);
 
 	int consumeNetworkBuffer(int connectionFd, std::string& connectionBuffer);

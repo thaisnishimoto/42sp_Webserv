@@ -15,7 +15,10 @@ public:
 	int connectionFd;
 	uint16_t port;
 	uint32_t host;
+	//TODO
+	//rename buffer to requestBuffer
 	std::string buffer;
+	std::string responseBuffer;
 	Request request;
 	Response response;
 	VirtualServer* virtualServer;
