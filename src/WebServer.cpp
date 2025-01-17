@@ -39,17 +39,46 @@ WebServer::~WebServer(void)
 
 void WebServer::init(void)
 {
+	//////////// mvp object
+	VirtualServer model;
+	model.host = 0x7f000001;
+	model.port = 8081;
+	model.name = "Model";
+	model.clientMaxBodySize = 1024;
+	model.defaultVirtualServer = false;
+	//criar pair<string,string> para adicionar em models.errorPages
+	
+	Location location;
+	location.allowedMethods.push_back("GET");
+	location.allowedMethods.push_back("POST");
+	location.allowedMethods.push_back("DELETE");
+	location.root = "/content";
+	location.redirect = "general_error.html";
+	location.autoindex = false;
+	location.cgi = false;
+
+	std::pair<std::string, Location> resourceLocationPair("/", location);
+	model.locations.insert(resourceLocationPair);
+
+	_virtualServers.push_back(model);
+	///////////////////////////
+
+
     // hard coded as fuck
     std::map<std::string, VirtualServer*> map1, map2;
     _virtualServers.push_back(VirtualServer(8081, "Server1"));
     _virtualServers.push_back(VirtualServer(8081, "Server2"));
     _virtualServers.push_back(VirtualServer(8082, "Server3"));
-    map1.insert(std::pair<std::string, VirtualServer*>(_virtualServers[0].name,
-                                                       &_virtualServers[0]));
     map1.insert(std::pair<std::string, VirtualServer*>(_virtualServers[1].name,
                                                        &_virtualServers[1]));
-    map2.insert(std::pair<std::string, VirtualServer*>(_virtualServers[2].name,
+    map1.insert(std::pair<std::string, VirtualServer*>(_virtualServers[2].name,
                                                        &_virtualServers[2]));
+    map2.insert(std::pair<std::string, VirtualServer*>(_virtualServers[3].name,
+                                                       &_virtualServers[3]));
+
+	//////////model in map
+	map1.insert(std::pair<std::string, VirtualServer*>(_virtualServers[0].name, &_virtualServers[0]));
+	///////////////////
 
     std::pair<uint32_t, uint16_t> pair(0x7f000001, 8081);
     _vServersLookup.insert(
