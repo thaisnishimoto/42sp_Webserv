@@ -305,6 +305,21 @@ void WebServer::fillResponse(Connection& connection)
     else
     {
         identifyVirtualServer(connection);
+		//GET, POST and DELETE handlers go here
+		if (request.method == "GET")
+		{
+			std::cout << "IT IS A GET" << std::endl;
+		}
+		else if (request.method == "POST")
+		{
+			std::cout << "IT IS A POST" << std::endl;
+		}
+		else if (request.method == "DELETE")
+		{
+			std::cout << "IT IS A DELETE" << std::endl;
+		}
+
+		//old code
         response.statusCode = "200";
         response.reasonPhrase = "OK";
         std::pair<std::string, std::string> pair(
@@ -327,6 +342,7 @@ void WebServer::buildResponseBuffer(Connection& connection)
 // WIP
 void WebServer::identifyVirtualServer(Connection& connection)
 {
+	//based on connection info host:port
     std::pair<uint32_t, uint16_t> key(connection.host, connection.port);
     std::map<std::string, VirtualServer> vServersFromHostPort =
         _virtualServersLookup[key];
