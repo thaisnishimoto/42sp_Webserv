@@ -1,0 +1,76 @@
+@startuml
+
+!pragma useVerticalIf on
+
+title Reacting to methods (NO CGI)
+
+start
+
+split
+	: GET;
+	if (found a representation of the target resource?) then (no)
+		: 404 not found;
+		stop
+	else if (are permissions ok for the representation?) then (no)
+		: 403 Unauthroized;
+		stop
+	else if (has the resource been moved?) then (yes)
+		: 301 Moved Permanently;
+		stop
+	else (no)
+		: 200 OK;
+		: append content of resource to response body;
+		: populate response headers accordingly;
+	endif
+split again
+	:POST;
+	if (found a representation of the target resource?) then (no)
+		: 404 not found;
+		stop
+	else if (are permissions ok for the representation?) then (no)
+		: 403 Unauthroized;
+		stop
+	else if (has the resource been moved?) then (yes)
+		: 301 Moved Permanently;
+		stop
+	else (no)
+		split
+			: 200 OK;
+			: append representation of the result do the response body;
+		split again
+			: 201 Created;
+			: Header Location with the URI of the newly created resources;
+		split again
+			: 204 No Content;
+			: Response has no body;
+		end split
+	endif
+
+split again
+	:DELETE;
+	if (found a representation of the target resource?) then (no)
+		: 404 not found;
+		stop
+	else if (are permissions ok for the representation?) then (no)
+		: 403 Unauthroized;
+		stop
+	else if (does resource state prevent it from being deleted?) then (yes)
+		#pink: 409 Conflict;
+		stop
+	else if (has the resource been moved?) then (yes)
+		: 301 Moved Permanently;
+		stop
+	else (no)
+		split
+			: 200 OK;
+			: append content of resource to response body;
+			split again
+			: 204 No Content;
+		end split
+	endif
+
+end split
+stop
+
+
+@enduml

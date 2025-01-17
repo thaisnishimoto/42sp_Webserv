@@ -1,0 +1,36 @@
+@startuml
+
+
+title Fill Response object
+
+start
+	if (is Request a Bad request?) then (yes)
+		:fill Response with 400 Bad Request; 
+		stop
+	else if (is Request method implemented?) then (no)
+		:fill Response with 501 Not Implemented;
+		stop
+	else if (is Request method allowed in the relevant location?) then (no)
+		:fill Response with 405 Not Implemented;
+		stop
+	else (yes)
+	endif
+
+	switch (method?)
+	case (GET)
+	 :deal with GET;
+	case (POST)
+	 :deal with POST;
+	case (DELETE)
+	 :deal with POST;
+	endswitch
+
+	:construct string based on Response object;
+	:send string;
+	:next steps;
+
+
+stop
+
+
+@enduml
