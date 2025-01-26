@@ -71,6 +71,7 @@ class WebServer
     void parseRequestLine(std::string& connectionBuffer, Request& request);
     void parseMethod(std::string& requestLine, Request& request);
     void parseTarget(std::string& requestLine, Request& request);
+    void parseQueryString(std::string& requestTarget, Request& request);
     void parseVersion(std::string& requestLine, Request& request);
 
     void parseHeader(std::string& connectionBuffer, Request& request);

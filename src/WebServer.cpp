@@ -805,10 +805,10 @@ void WebServer::parseTarget(std::string& requestLine, Request& request)
         request.badRequest = true;
         request.continueParsing = false;
     }
+    parseQueryString(requestTarget, request);
     request.target = requestTarget;
     _logger.log(DEBUG, "Parsed target: " + requestTarget);
-    requestLine =
-        requestLine.substr(requestTarget.size() + 1, std::string::npos);
+    requestLine = requestLine.substr(requestTarget.size() + 1, std::string::npos);
     // std::cout << "Remainder of request line: " << "'" << requestLine << "'"
     // << std::endl;
 }
