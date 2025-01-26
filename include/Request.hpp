@@ -9,6 +9,7 @@ class Request
   public:
     std::string method;
     std::string target;
+    std::string queryString;
     std::map<std::string, std::string> headerFields;
     std::string body;
     size_t contentLength;

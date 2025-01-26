@@ -17,6 +17,7 @@ SRC_FILES = main \
 			Request \
 			Response \
 			Connection \
+			Cgi \
 			Config \
 			VirtualServer \
 			Location \
