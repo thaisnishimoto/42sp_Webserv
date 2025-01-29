@@ -463,6 +463,41 @@ void WebServer::fillResponse(Connection& connection)
 
 		Location& location = getLocation(connection.virtualServer,
 								   request.locationName);
+        // identifyLocation
+        // if (location doesnt exist in virtual server)
+        // {
+        //     response.statusCode = "404";
+        //     response.reasonPhrase = "Not Found";
+        // }
+        // connection.location = connection.virtualServer->locations["/cgi-bin"];
+        if (connection.virtualServer->locations.find("/cgi-bin") != connection.virtualServer->locations.end())
+        {
+            // Location location = *connection.virtualServer->locations["/cgi-bin"];
+            // std::cout << location.cgi << std::endl;
+            connection.location = connection.virtualServer->locations["/cgi-bin"];
+            std::cout << connection.location->cgi << std::endl;
+        }
+        if (isCgiRequest(request))
+        {
+            _logger.log(INFO, "Handling CGI Request"); 
+            // executeCGI();
+            response.statusCode = "200";
+            response.reasonPhrase = "OK";
+            std::pair<std::string, std::string> pair(
+                "origin", connection.virtualServer->getServerName());
+            response.headerFields.insert(pair);
+            response.body = request.body;
+        }
+        else
+        {
+            //static response
+            response.statusCode = "200";
+            response.reasonPhrase = "OK";
+            std::pair<std::string, std::string> pair(
+                "origin", connection.virtualServer->name);
+            response.headerFields.insert(pair);
+            response.body = request.body;
+        }
 		if (location.getRedirect().empty() == false)
 		{
 			std::string msg = "Location redirects to ";

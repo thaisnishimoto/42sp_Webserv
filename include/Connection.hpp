@@ -24,6 +24,7 @@ class Connection
     Request request;
     Response response;
     VirtualServer* virtualServer;
+    Location* location;
 
     bool error;
     time_t lastActivity;
