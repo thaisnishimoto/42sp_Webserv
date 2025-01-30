@@ -340,12 +340,12 @@ void WebServer::fillResponse(Connection& connection)
 		}
 
 		//old code
-        response.statusCode = "200";
-        response.reasonPhrase = "OK";
-        std::pair<std::string, std::string> pair(
-            "origin", connection.virtualServer->getServerName());
-        response.headerFields.insert(pair);
-        response.body = request.body;
+        // response.statusCode = "200";
+        // response.reasonPhrase = "OK";
+        // std::pair<std::string, std::string> pair(
+        //     "origin", connection.virtualServer->name);
+        // response.headerFields.insert(pair);
+        // response.body = request.body;
     }
 }
 
@@ -948,9 +948,21 @@ void WebServer::handleGET(Connection& connection)
 		}
 		else
 		{
+			//TODO - base on location index file name
 			_logger.log(DEBUG, "Appending location index file name to target resource");
 			request.target += "index.html";
 		}
+	}
+
+	std::string localFileName = "." + location.root + request.target;
+
+	//check if file exists
+	if (access(localFileName.c_str(), F_OK) != 0)
+	{
+		std::string msg = "File " + localFileName + "does not exist.";
+		_logger.log(DEBUG, msg);
+		response.statusCode = "404";
+		response.reasonPhrase = "Not Found";
 	}
 	(void) response;
 }
