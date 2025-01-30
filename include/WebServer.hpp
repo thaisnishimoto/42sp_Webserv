@@ -81,6 +81,7 @@ class WebServer
 
     void buildResponseBuffer(Connection& connection);
     void fillResponse(Connection& connection);
+	void handleGET(Connection& connection);
 
     int consumeNetworkBuffer(int connectionFd, std::string& connectionBuffer);
 };

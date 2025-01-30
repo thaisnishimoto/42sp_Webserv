@@ -308,6 +308,7 @@ void WebServer::fillResponse(Connection& connection)
 		//GET, POST and DELETE handlers go here
 		if (request.method == "GET")
 		{
+			handleGET(connection);
 			std::cout << "IT IS A GET" << std::endl;
 		}
 		else if (request.method == "POST")
@@ -875,4 +876,30 @@ void WebServer::setNonBlocking(int fd)
         throw std::runtime_error(
             "Server Error: Could not set fd to NonBlocking");
     }
+}
+
+static bool isTargetDir(Request& request)
+{
+	std::string& target = request.target;
+	size_t endPos = target.length() - 1;
+
+	if (target[endPos] == '/')
+	{
+		return true;
+	}
+	return false;
+}
+
+void WebServer::handleGET(Connection& connection)
+{
+	Request& request = connection.request;
+	Response& response = connection.response;
+
+	if (isTargetDir(request) == true)
+	{
+		_logger.log(DEBUG, "Target resource is a directory");
+		//check for autoindex OR
+		//append index.html to target
+	}
+	(void) response;
 }
