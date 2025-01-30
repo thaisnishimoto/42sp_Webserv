@@ -469,15 +469,11 @@ void WebServer::fillResponse(Connection& connection)
         //     response.statusCode = "404";
         //     response.reasonPhrase = "Not Found";
         // }
-        // connection.location = connection.virtualServer->locations["/cgi-bin"];
         if (connection.virtualServer->locations.find("/cgi-bin") != connection.virtualServer->locations.end())
         {
-            // Location location = *connection.virtualServer->locations["/cgi-bin"];
-            // std::cout << location.cgi << std::endl;
             connection.location = connection.virtualServer->locations["/cgi-bin"];
-            std::cout << connection.location->cgi << std::endl;
         }
-        if (isCgiRequest(request))
+        if (isCgiRequest(connection))
         {
             _logger.log(INFO, "Handling CGI Request"); 
             // executeCGI();
