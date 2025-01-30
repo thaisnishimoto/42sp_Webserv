@@ -14,10 +14,18 @@ void WebServer::parseQueryString(std::string& requestTarget, Request& request)
 
 bool WebServer::isCgiRequest(Connection& connection)
 {
+    if (connection.location->cgi == false)
+        return false;
+    
     std::string target = connection.request.target;
-    if (connection.location->cgi == true && target.find("/cgi-bin/") == 0) 
+    if (target.find("/cgi-bin/") != 0) 
+        return false;
+
+    size_t extPos = target.find_last_of('.');
+    if (extPos != std::string::npos)
     {
-        if (target.find(".php") != std::string::npos || target.find(".py") != std::string::npos)
+        std::string extension = target.substr(extPos);
+        if (extension == ".php" || extension == ".py")
             return true;
     }
     return false;
