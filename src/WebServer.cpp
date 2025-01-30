@@ -283,7 +283,7 @@ void WebServer::modifyEventInterest(int epollFd, int eventFd, uint32_t event)
     epoll_ctl(epollFd, EPOLL_CTL_MOD, eventFd, &target_event);
 }
 
-static void getLocationName(Request& request)
+static void fillLocationName(Request& request)
 {
 	std::string& target = request.target;
 	size_t lastSlashPos = target.rfind("/");
@@ -320,11 +320,11 @@ void WebServer::fillResponse(Connection& connection)
     else
     {
         identifyVirtualServer(connection);
-		getLocationName(request);
-		//identificar location do request
-		//onde guardar? no request?
+		fillLocationName(request);
+
+		//TODO
 		//handle redirects here
-		//GET, POST and DELETE handlers go here
+
 		if (request.method == "GET")
 		{
 			handleGET(connection);
@@ -909,11 +909,35 @@ static bool isTargetDir(Request& request)
 	return false;
 }
 
+static Location& getLocation(VirtualServer* vServer, std::string locationName)
+{
+	std::map<std::string, Location>::iterator it = vServer->locations.begin();
+	std::map<std::string, Location>::iterator ite = vServer->locations.end();
+
+	while (it != ite)
+	{
+		if (it->first == locationName)
+		{
+			return it->second;
+		}
+		++it;
+	}
+
+	size_t lastSlashPos = locationName.rfind("/");
+	if (lastSlashPos == 0)
+	{
+		return getLocation(vServer, "/");
+	}
+
+	std::string parentLocation = locationName.substr(0, locationName.rfind("/"));
+	return getLocation(vServer, parentLocation);
+}
+
 void WebServer::handleGET(Connection& connection)
 {
 	Request& request = connection.request;
 	Response& response = connection.response;
-	Location& location = connection.virtualServer->locations[request.locationName];
+	Location& location = getLocation(connection.virtualServer, request.locationName);
 
 	if (isTargetDir(request) == true)
 	{
