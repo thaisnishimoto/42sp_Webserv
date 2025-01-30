@@ -85,6 +85,7 @@ class WebServer
     void fillResponse(Connection& connection);
 	void handleGET(Connection& connection);
 
+    bool isCgiRequest(Connection& connection);
     int consumeNetworkBuffer(int connectionFd, std::string& connectionBuffer);
 };
 

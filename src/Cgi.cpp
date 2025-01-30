@@ -11,3 +11,14 @@ void WebServer::parseQueryString(std::string& requestTarget, Request& request)
         requestTarget = requestTarget.substr(0, pos);
     }
 }
+
+bool WebServer::isCgiRequest(Connection& connection)
+{
+    std::string target = connection.request.target;
+    if (connection.location->cgi == true && target.find("/cgi-bin/") == 0) 
+    {
+        if (target.find(".php") != std::string::npos || target.find(".py") != std::string::npos)
+            return true;
+    }
+    return false;
+}
