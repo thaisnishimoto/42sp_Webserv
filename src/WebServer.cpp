@@ -1,4 +1,11 @@
 #include "WebServer.hpp"
+#include "Logger.hpp"
+#include "utils.hpp"
+#include <cstdlib>
+#include <fcntl.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <fstream> //ifstream
 
 static bool validateTransferEncoding(Request& request);
 
@@ -964,6 +971,7 @@ void WebServer::handleGET(Connection& connection)
 		response.reasonPhrase = "Not Found";
 		//add content of specific file to body
 		//add proper content-length
+		//early return
 	}
 
 	//check reading rights
@@ -975,6 +983,26 @@ void WebServer::handleGET(Connection& connection)
 		response.reasonPhrase = "Forbidden";
 		//add content of specific file to body
 		//add proper content-length
+		//early return
 	}
-	(void) response;
+
+	//open file
+	std::ifstream file(localFileName.c_str());
+	if (file.is_open() == false)
+	{
+		response.statusCode = "500";
+		response.reasonPhrase = "Internal Server Error";
+		//add body?
+		//early return
+	}
+
+	//read content of file using special std::string constructor
+	std::istreambuf_iterator<char> it(file);
+	std::istreambuf_iterator<char> ite;
+	std::string fileContent(it, ite);
+
+	file.close();
+
+	response.body = fileContent;
+	response.headerFields["content-length"] = itoa(static_cast<int>(fileContent.length()));
 }
