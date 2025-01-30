@@ -1,0 +1,43 @@
+@startuml
+
+title Details of handling a GET request (NO CGI)
+
+start
+
+if (does request.target ends with a /?) then (yes)
+	if (does location assoaciated with target with autoindex on?) then (yes)
+		:construct directory listing;
+		:add content to response.body;
+		stop
+	else (no)
+		:append to request.target the index file for that location;
+	endif
+else (no)
+endif
+
+if (does resource exist in filesystem?) then (no)
+	:404 Not Found;
+	:error page;
+	stop
+else (yes)
+endif
+
+if (file permissions are OK?) then (no)
+		:403 Forbidden;
+		:error page;
+		stop
+	else (yes)
+endif
+
+:Try to open resource;
+if (succeeded in opening file?) then (no)
+	:500 Interval Server Error;
+	:error page;
+else (yes)
+	:append content of file to response.body;
+	:add appropriate content-length to response.headers;
+endif
+
+stop
+
+@enduml
