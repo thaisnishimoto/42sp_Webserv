@@ -360,7 +360,7 @@ void WebServer::buildResponseBuffer(Connection& connection)
 {
     connection.responseBuffer = "HTTP/1.1 " + connection.response.statusCode +
                                 " " + connection.response.reasonPhrase + "\r\n";
-    connection.responseBuffer += "content-length: 10\r\n";
+    connection.responseBuffer += "content-length: 288\r\n";
     connection.responseBuffer +=
         "origin: " + connection.response.headerFields["origin"] + "\r\n\r\n";
     connection.responseBuffer += connection.response.body;
@@ -1005,4 +1005,6 @@ void WebServer::handleGET(Connection& connection)
 
 	response.body = fileContent;
 	response.headerFields["content-length"] = itoa(static_cast<int>(fileContent.length()));
+	response.statusCode = "200";
+	response.reasonPhrase = "OK";
 }
