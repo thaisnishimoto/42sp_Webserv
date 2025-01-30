@@ -945,13 +945,12 @@ void WebServer::handleGET(Connection& connection)
 		if (location.autoindex == true)
 		{
 			//build directorylisting
+			//early return
 		}
-		else
-		{
-			//TODO - base on location index file name
-			_logger.log(DEBUG, "Appending location index file name to target resource");
-			request.target += "index.html";
-		}
+
+		//TODO - base on location index file name
+		_logger.log(DEBUG, "Appending location index file name to target resource");
+		request.target += "index.html";
 	}
 
 	std::string localFileName = "." + location.root + request.target;
@@ -959,10 +958,23 @@ void WebServer::handleGET(Connection& connection)
 	//check if file exists
 	if (access(localFileName.c_str(), F_OK) != 0)
 	{
-		std::string msg = "File " + localFileName + "does not exist.";
+		std::string msg = "File " + localFileName + " does not exist.";
 		_logger.log(DEBUG, msg);
 		response.statusCode = "404";
 		response.reasonPhrase = "Not Found";
+		//add content of specific file to body
+		//add proper content-length
+	}
+
+	//check reading rights
+	if (access(localFileName.c_str(), R_OK) != 0)
+	{
+		std::string msg = "WebServ does not have reading rights for " + localFileName + ".";
+		_logger.log(DEBUG, msg);
+		response.statusCode = "403";
+		response.reasonPhrase = "Forbidden";
+		//add content of specific file to body
+		//add proper content-length
 	}
 	(void) response;
 }
