@@ -283,6 +283,21 @@ void WebServer::modifyEventInterest(int epollFd, int eventFd, uint32_t event)
     epoll_ctl(epollFd, EPOLL_CTL_MOD, eventFd, &target_event);
 }
 
+static void getLocationName(Request& request)
+{
+	std::string& target = request.target;
+	size_t lastSlashPos = target.rfind("/");
+
+	if (lastSlashPos != 0)
+	{
+		request.locationName = target.substr(0, lastSlashPos);
+		return;
+	}
+
+	request.locationName = "/";
+	return;
+}
+
 void WebServer::fillResponse(Connection& connection)
 {
     Request& request = connection.request;
@@ -305,6 +320,10 @@ void WebServer::fillResponse(Connection& connection)
     else
     {
         identifyVirtualServer(connection);
+		getLocationName(request);
+		//identificar location do request
+		//onde guardar? no request?
+		//handle redirects here
 		//GET, POST and DELETE handlers go here
 		if (request.method == "GET")
 		{
@@ -894,12 +913,20 @@ void WebServer::handleGET(Connection& connection)
 {
 	Request& request = connection.request;
 	Response& response = connection.response;
+	Location& location = connection.virtualServer->locations[request.locationName];
 
 	if (isTargetDir(request) == true)
 	{
 		_logger.log(DEBUG, "Target resource is a directory");
-		//check for autoindex OR
-		//append index.html to target
+		if (location.autoindex == true)
+		{
+			//build directorylisting
+		}
+		else
+		{
+			_logger.log(DEBUG, "Appending location index file name to target resource");
+			request.target += "index.html";
+		}
 	}
 	(void) response;
 }

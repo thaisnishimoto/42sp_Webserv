@@ -13,6 +13,8 @@ class Request
     std::string body;
     size_t contentLength;
 
+	std::string locationName;
+
     bool parsedMethod;
     bool parsedRequestLine;
     bool parsedHeader;
