@@ -1010,11 +1010,16 @@ void WebServer::handleGET(Connection& connection)
 	std::ifstream file(localFileName.c_str());
 	if (file.is_open() == false)
 	{
+		std::string msg = "WebServ could not open" + localFileName + "for some reason.";
+		_logger.log(DEBUG, msg);
 		response.statusCode = "500";
 		response.reasonPhrase = "Internal Server Error";
 		//add body?
 		//early return
 	}
+
+	std::string msg = "Opened " + localFileName;
+	_logger.log(DEBUG, msg);
 
 	//read content of file using special std::string constructor
 	std::istreambuf_iterator<char> it(file);
@@ -1023,6 +1028,8 @@ void WebServer::handleGET(Connection& connection)
 
 	file.close();
 
+	msg = "Filling response object with data from " + localFileName;
+	_logger.log(DEBUG, msg);
 	response.body = fileContent;
 	response.headerFields["content-length"] = itoa(static_cast<int>(fileContent.length()));
 	response.statusCode = "200";
