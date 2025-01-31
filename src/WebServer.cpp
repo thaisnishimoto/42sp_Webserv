@@ -358,12 +358,32 @@ void WebServer::fillResponse(Connection& connection)
 
 void WebServer::buildResponseBuffer(Connection& connection)
 {
-    connection.responseBuffer = "HTTP/1.1 " + connection.response.statusCode +
-                                " " + connection.response.reasonPhrase + "\r\n";
-    connection.responseBuffer += "content-length: 288\r\n";
-    connection.responseBuffer +=
-        "origin: " + connection.response.headerFields["origin"] + "\r\n\r\n";
-    connection.responseBuffer += connection.response.body;
+	Response& response = connection.response;
+	std::string& buffer = connection.responseBuffer;
+
+	//status line
+	buffer = "HTTP/1.1 ";
+	buffer += response.statusCode;
+	buffer += " ";
+	buffer += response.reasonPhrase;
+	buffer += "\r\n";
+
+	//headers
+	std::map<std::string, std::string>::iterator it = response.headerFields.begin();
+	std::map<std::string, std::string>::iterator ite = response.headerFields.end();
+
+	while (it != ite)
+	{
+		buffer += it->first;
+		buffer += ": ";
+		buffer += it->second;
+		buffer += "\r\n";
+		++it;
+	}
+	buffer += "\r\n";
+
+	//body
+    buffer += connection.response.body;
 }
 
 // WIP
