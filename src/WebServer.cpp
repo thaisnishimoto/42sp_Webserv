@@ -966,6 +966,17 @@ void WebServer::handleGET(Connection& connection)
 	Response& response = connection.response;
 	Location& location = getLocation(connection.virtualServer, request.locationName);
 
+	//TODO
+	//change Location.allowedMethods from vector to set. easir to find elements
+	if (location.allowedMethods[0] != "GET")
+	{
+		response.statusCode = "405";
+		response.reasonPhrase = "Method Not Allowed";
+		response.body = "PROIBIDO, CARAI";
+		response.headerFields["content-length"] = itoa(static_cast<int>(response.body.length()));
+		return;
+	}
+
 	if (isTargetDir(request) == true)
 	{
 		_logger.log(DEBUG, "Target resource is a directory");
