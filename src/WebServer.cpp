@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <dirent.h> //opendir
 #include <fstream> //ifstream
 
 static bool validateTransferEncoding(Request& request);
@@ -984,11 +985,25 @@ void WebServer::handleGET(Connection& connection)
 		{
 			//build directorylisting
 			//early return
+			std::string localDirName = "." + location.root + request.target;
+			std::string msg = "Opening " + localDirName + " directory.";
+			_logger.log(DEBUG, msg);
+			DIR* dir = opendir(localDirName.c_str());
+
+			struct dirent* dirContent = readdir(dir);
+			while (dirContent != NULL)
+			{
+				std::cout << dirContent->d_name << std::endl;
+				dirContent = readdir(dir);
+			}
+
+			closedir(dir);
+			return;
 		}
 
 		//TODO - base on location index file name
-		_logger.log(DEBUG, "Appending location index file name to target resource");
-		request.target += "index.html";
+		// _logger.log(DEBUG, "Appending location index file name to target resource");
+		// request.target += "index.html";
 	}
 
 	std::string localFileName = "." + location.root + request.target;
