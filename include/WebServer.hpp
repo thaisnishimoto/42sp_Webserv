@@ -5,19 +5,24 @@
 #define TIMEOUT 60
 #define CLIENT_MAX_BODY_SIZE 1048576
 
+#include "Config.hpp"
 #include "Connection.hpp"
 #include "Logger.hpp"
+#include "VirtualServer.hpp"
 
 #include <cerrno>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <errno.h>
 #include <fcntl.h>
 #include <map>
+#include <netinet/in.h>
 #include <set>
 #include <sstream>
 #include <stdexcept>
 #include <sys/epoll.h>
+#include <sys/socket.h>
 #include <unistd.h>
 #include <vector>
 
@@ -25,13 +30,15 @@ class WebServer
 {
   private:
     int _epollFd;
+    Config _config;
     std::set<uint16_t> _ports;
     std::map<int, uint16_t> _socketsToPorts;
     std::vector<VirtualServer> _virtualServers;
     std::map<std::pair<uint32_t, uint16_t>,
-             std::map<std::string, VirtualServer*> >
-        _vServersLookup;
-    std::map<uint16_t, VirtualServer*> _vServersDefault;
+             std::map<std::string, VirtualServer> >
+        _virtualServersLookup;
+    std::map<std::pair<uint32_t, uint16_t>, VirtualServer*>
+        _virtualServersDefault;
 
     std::map<int, Connection> _connectionsMap;
 
@@ -42,7 +49,7 @@ class WebServer
     Logger _logger;
 
   public:
-    WebServer(void);
+    WebServer(const std::string& configFile);
     ~WebServer(void);
     void init(void);
     void run(void);

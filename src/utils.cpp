@@ -1,5 +1,4 @@
 #include "utils.hpp"
-#include <sstream>
 
 void tolower(std::string& str)
 {
@@ -58,4 +57,35 @@ std::string itoa(int n)
     std::ostringstream oss;
     oss << n;
     return oss.str();
+}
+
+bool removeLastChar(std::string& word, char delimiter)
+{
+    bool removed = false;
+    if (word.empty() == false && word[word.size() - 1] == delimiter)
+    {
+        word.erase(word.size() - 1);
+        removed = true;
+    }
+    return removed;
+}
+
+bool isValidExtension(const std::string& fileName, const std::string& extension)
+{
+    std::string fileExtension;
+    size_t pos = fileName.find(".");
+
+    if (pos == std::string::npos || (fileName.length() <= extension.length()))
+    {
+        return false;
+    }
+    else
+    {
+        fileExtension = fileName.substr(pos);
+        if (fileExtension != extension)
+        {
+            return false;
+        }
+    }
+    return true;
 }

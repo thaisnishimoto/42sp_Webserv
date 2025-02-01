@@ -1,12 +1,191 @@
 #include "VirtualServer.hpp"
 
-//provisorio
-VirtualServer::VirtualServer(void)
+VirtualServer::VirtualServer()
 {
-	defaultVirtualServer = false;
+    _logger.log(DEBUG, "New VirtualServer created");
+    initReferences();
+    _default = false;
+    _host = 0x7f000001;
+    _port = 0x0050;
+    _serverName = "";
+    setDefaultsErrorsPage();
+    _clientMaxBodySize = 1024;
 }
 
-VirtualServer::VirtualServer(int port, std::string name)
-    : port(port), name(name)
+void VirtualServer::initReferences()
 {
+    // Directives
+    _refAllowedServerDirective.insert("host");
+    _refAllowedServerDirective.insert("port");
+    _refAllowedServerDirective.insert("server_name");
+    _refAllowedServerDirective.insert("error_page");
+    _refAllowedServerDirective.insert("client_max_body_size");
+
+    // Errors
+    _refAllowedErrorCode.insert("400");
+    _refAllowedErrorCode.insert("404");
+    _refAllowedErrorCode.insert("500");
+    _refAllowedErrorCode.insert("501");
+}
+
+void VirtualServer::validateDirective(const std::string& directive)
+{
+    bool isAllowed = false;
+
+    if (_refAllowedServerDirective.find(directive) !=
+        _refAllowedServerDirective.end())
+    {
+        isAllowed = true;
+        _refAllowedServerDirective.erase(directive);
+    }
+    if (isAllowed == false)
+    {
+        _logger.log(ERROR, "Invalid server directive: '" + directive +
+                               "' or directive already defined");
+        throw std::runtime_error("");
+    }
+}
+
+void VirtualServer::setDefault() { _default = true; }
+
+void VirtualServer::validateErrorCode(std::string& code)
+{
+    bool isAllowed = false;
+    if (_refAllowedErrorCode.find(code) != _refAllowedErrorCode.end())
+    {
+        isAllowed = true;
+        _refAllowedErrorCode.erase(code);
+    }
+    if (isAllowed == false)
+    {
+        _logger.log(ERROR, "This error is not supported or already was set: '" +
+                               code + "'");
+        throw std::runtime_error("");
+    }
+}
+
+void VirtualServer::setDefaultsErrorsPage()
+{
+    std::string errorsRoot = "/errors/";
+    _errorsPage["400"] = errorsRoot + "400.html";
+    _errorsPage["404"] = errorsRoot + "404.html";
+    _errorsPage["501"] = errorsRoot + "501.html";
+    _errorsPage["500"] = errorsRoot + "500.html";
+}
+
+void VirtualServer::setErrorsPage(std::stringstream& serverBlock)
+{
+    std::string code;
+    while (serverBlock >> code)
+    {
+        validateErrorCode(code);
+        std::pair<std::string, std::string> pair;
+        pair.first = code;
+        std::string path;
+        serverBlock >> path;
+        if (removeLastChar(path, ';') == true)
+        {
+            pair.second = path;
+            _errorsPage[code] = path;
+            break;
+        }
+        pair.second = path;
+        _errorsPage[code] = path;
+    }
+}
+
+uint32_t VirtualServer::ipStringToNetOrder(std::string& ip)
+{
+    Logger _logger;
+    unsigned int octets[4] = {0};
+    char dots[4];
+    bool err = false;
+    uint32_t host;
+    std::stringstream ss(ip);
+
+    ss >> octets[0] >> dots[0] >> octets[1] >> dots[1] >> octets[2] >>
+        dots[2] >> octets[3];
+    dots[3] = '.';
+    for (int i = 0; i < 4; i++)
+    {
+        if (octets[i] > 255 || dots[i] != '.')
+        {
+            err = true;
+        }
+    }
+    if (ss == false || ss.eof() == false || err == true)
+    {
+        _logger.log(ERROR,
+                    "Invalid host value '" + ip +
+                        "'. Host must be between 0.0.0.0 - 255.255.255.255");
+        throw std::runtime_error("");
+    }
+    host = (octets[0] << 24) | (octets[1] << 16) | (octets[2] << 8) | octets[3];
+    return host;
+}
+
+void VirtualServer::setHost(std::string& directiveValue)
+{
+    if (directiveValue == "localhost")
+    {
+        directiveValue = "127.0.0.1";
+    }
+    _host = ipStringToNetOrder(directiveValue);
+}
+
+void VirtualServer::setPort(std::string& directiveValue)
+{
+    int tmpPort;
+
+    std::stringstream ss(directiveValue);
+    if ((ss >> tmpPort) == false || tmpPort < 0 || tmpPort > 65535 ||
+        ss.eof() == false)
+    {
+        _logger.log(ERROR, "Invalid port value '" + directiveValue +
+                               "'. Port must be between 0-65635");
+        throw std::runtime_error("");
+    }
+    _port = static_cast<uint16_t>(tmpPort);
+};
+
+void VirtualServer::setServerName(std::string& directiveValue)
+{
+    _serverName = directiveValue;
+};
+
+void VirtualServer::setBodySize(std::string& directiveValue)
+{
+    int tmpBodySize;
+
+    std::stringstream ss(directiveValue);
+    if ((ss >> tmpBodySize) == false || tmpBodySize < 0 || tmpBodySize > 1024 ||
+        ss.eof() == false)
+    {
+        _logger.log(ERROR, "Malformed client_max_body_size directive '" +
+                               directiveValue + "'");
+        throw std::runtime_error("");
+    }
+    _clientMaxBodySize = static_cast<uint16_t>(tmpBodySize);
+}
+
+void VirtualServer::setLocation(std::pair<std::string, Location>& location)
+{
+    _locations.insert(location);
+}
+
+std::string VirtualServer::getServerName(void) const { return _serverName; }
+
+uint32_t VirtualServer::getHost(void) const { return _host; }
+
+uint16_t VirtualServer::getPort(void) const { return _port; }
+
+int VirtualServer::getBodySize(void) const { return _clientMaxBodySize; }
+
+Location* VirtualServer::getLocation(std::string resource)
+{
+    if (_locations.find(resource) != _locations.end())
+    {
+        return &_locations[resource];
+    }
+    return NULL;
 }

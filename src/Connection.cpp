@@ -1,7 +1,4 @@
 #include "Connection.hpp"
-#include <cerrno>
-#include <cstring>
-#include <sys/socket.h>
 
 Connection::Connection(void) {}
 

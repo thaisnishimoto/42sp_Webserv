@@ -1,0 +1,32 @@
+@startuml
+
+class ServerConfig{
+    - std::map<std::pair<std::string, uint16_t>, std::map <std::string, VserverConfig> > **_vservers**;
+
+
+    + void load(std::string filename)
+    + ...()
+}
+
+struct VserverConfig{
+    + uint16_t **port**;
+    + bool defaultServer;
+    + std::string serverName;
+    + std::string errorPage;
+    + int bodySizeLimit;
+    + std::map<std::string, RouteConfig> **routes**;
+}
+
+struct RouteConfig {
+   + std::vector<std::string> allowedMehods;
+   + std::string root;
+   + bool autoIndex;
+   + std::string redirect;
+   + std::string cgi;
+   + std::string upload;
+}
+
+ServerConfig "1" *-- "many" VserverConfig
+VserverConfig "1" *-- "many" RouteConfig
+
+@enduml

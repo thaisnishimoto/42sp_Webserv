@@ -1,9 +1,11 @@
 #ifndef _CONNECTION_HPP_
 #define _CONNECTION_HPP_
 
-#include <ctime>    //time_t
-#include <iostream> //std::string
-#include <netdb.h>  //uint16_t
+#include <cerrno>
+#include <cstring>
+#include <ctime>   //time_t
+#include <netdb.h> //uint16_t
+#include <sys/socket.h>
 
 #include "Request.hpp"
 #include "Response.hpp"

@@ -1,14 +1,9 @@
 #include "WebServer.hpp"
-#include "Logger.hpp"
-#include "utils.hpp"
-#include <cstdlib>
-#include <fcntl.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
 
 static bool validateTransferEncoding(Request& request);
 
-WebServer::WebServer(void) : _logger(DEBUG2)
+WebServer::WebServer(const std::string& configFile)
+    : _config(configFile), _logger(DEBUG2)
 {
     _implementedMethods.insert("GET");
     _implementedMethods.insert("POST");
@@ -39,61 +34,8 @@ WebServer::~WebServer(void)
 
 void WebServer::init(void)
 {
-	//////////// mvp object
-	VirtualServer model;
-	model.host = 0x7f000001;
-	model.port = 8081;
-	model.name = "Model";
-	model.clientMaxBodySize = 1024;
-	model.defaultVirtualServer = false;
-	//criar pair<string,string> para adicionar em models.errorPages
-	
-	Location location;
-	location.allowedMethods.push_back("GET");
-	location.allowedMethods.push_back("POST");
-	location.allowedMethods.push_back("DELETE");
-	location.root = "/content";
-	location.redirect = "general_error.html";
-	location.autoindex = false;
-	location.cgi = false;
-
-	std::pair<std::string, Location> resourceLocationPair("/", location);
-	model.locations.insert(resourceLocationPair);
-
-	_virtualServers.push_back(model);
-	///////////////////////////
-
-
-    // hard coded as fuck
-    std::map<std::string, VirtualServer*> map1, map2;
-    _virtualServers.push_back(VirtualServer(8081, "Server1"));
-    _virtualServers.push_back(VirtualServer(8081, "Server2"));
-    _virtualServers.push_back(VirtualServer(8082, "Server3"));
-    map1.insert(std::pair<std::string, VirtualServer*>(_virtualServers[1].name,
-                                                       &_virtualServers[1]));
-    map1.insert(std::pair<std::string, VirtualServer*>(_virtualServers[2].name,
-                                                       &_virtualServers[2]));
-    map2.insert(std::pair<std::string, VirtualServer*>(_virtualServers[3].name,
-                                                       &_virtualServers[3]));
-
-	//////////model in map
-	map1.insert(std::pair<std::string, VirtualServer*>(_virtualServers[0].name, &_virtualServers[0]));
-	///////////////////
-
-    std::pair<uint32_t, uint16_t> pair(0x7f000001, 8081);
-    _vServersLookup.insert(
-        std::pair<std::pair<uint32_t, uint16_t>,
-                  std::map<std::string, VirtualServer*> >(pair, map1));
-    std::pair<uint32_t, uint16_t> pair2(0x7f000001, 8082);
-    _vServersLookup.insert(
-        std::pair<std::pair<uint32_t, uint16_t>,
-                  std::map<std::string, VirtualServer*> >(pair2, map2));
-
-    // set default servers
-    std::pair<uint16_t, VirtualServer*> default1(8081, &_virtualServers[1]);
-    _vServersDefault.insert(default1);
-    std::pair<uint16_t, VirtualServer*> default2(8082, &_virtualServers[2]);
-    _vServersDefault.insert(default2);
+    _virtualServersLookup = _config.getVirtualServers();
+    _virtualServersDefault = _config.getDefaultsVirtualServers();
 
     _epollFd = epoll_create(1);
     if (_epollFd == -1)
@@ -366,7 +308,7 @@ void WebServer::fillResponse(Connection& connection)
         response.statusCode = "200";
         response.reasonPhrase = "OK";
         std::pair<std::string, std::string> pair(
-            "origin", connection.virtualServer->name);
+            "origin", connection.virtualServer->getServerName());
         response.headerFields.insert(pair);
         response.body = request.body;
     }
@@ -386,19 +328,19 @@ void WebServer::buildResponseBuffer(Connection& connection)
 void WebServer::identifyVirtualServer(Connection& connection)
 {
     std::pair<uint32_t, uint16_t> key(connection.host, connection.port);
-    std::map<std::string, VirtualServer*> vServersFromHostPort =
-        _vServersLookup[key];
+    std::map<std::string, VirtualServer> vServersFromHostPort =
+        _virtualServersLookup[key];
     std::string serverName = connection.request.headerFields["host"];
-    std::map<std::string, VirtualServer*>::iterator it =
+    std::map<std::string, VirtualServer>::iterator it =
         vServersFromHostPort.find(serverName);
     if (it == vServersFromHostPort.end())
     {
         // set default
-        std::cout << "Not found vserver" << std::endl;
-        connection.virtualServer = _vServersDefault[connection.port];
+        std::cerr << "Virtual server not found" << std::endl;
+        connection.virtualServer = _virtualServersDefault[key];
         return;
     }
-    connection.virtualServer = it->second;
+    connection.virtualServer = &(it->second);
 }
 
 void WebServer::parseRequest(Connection& connection)
@@ -408,7 +350,6 @@ void WebServer::parseRequest(Connection& connection)
     {
         connection.lastActivity = time(NULL);
     }
-
     if (request.parsedRequestLine == false)
     {
         parseRequestLine(connection.buffer, request);

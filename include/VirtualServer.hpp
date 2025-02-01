@@ -1,34 +1,55 @@
 #ifndef _VIRTUALSERVER_HPP_
 #define _VIRTUALSERVER_HPP_
 
-#include <iostream>
-#include <netdb.h>
-#include <vector>
-#include <map>
+#include "Location.hpp"
+#include "Logger.hpp"
 
-class Location
-{
-  public:
-    std::vector<std::string> allowedMethods;
-    std::string root;
-    std::string redirect;
-    bool autoindex;
-    bool cgi;
-};
+#include <map>
+#include <netdb.h> //uint16_t
+#include <set>
+#include <sstream>
 
 class VirtualServer
 {
-  public:
-    VirtualServer(void);
-    VirtualServer(int port, std::string name);
+  private:
+    bool _default;
+    uint32_t _host;
+    uint16_t _port;
+    std::string _serverName;
+    std::map<std::string, std::string> _errorsPage;
+    int _clientMaxBodySize;
+    std::map<std::string, Location> _locations;
 
-    uint32_t host;
-    uint16_t port;
-    std::string name;
-    size_t clientMaxBodySize;
-    std::map<std::string, std::string> errorPages;
-    std::map<std::string, Location> locations;
-    bool defaultVirtualServer;
+    std::set<std::string> _refAllowedErrorCode;
+    std::set<std::string> _refAllowedServerDirective;
+
+    uint32_t ipStringToNetOrder(std::string& ip);
+    Logger _logger;
+
+  public:
+    VirtualServer();
+
+    // sets
+    void setDefaultsErrorsPage();
+    void setDefault();
+    void setErrorsPage(std::stringstream& serverBlock);
+    void setHost(std::string& directiveValue);
+    void setPort(std::string& directiveValue);
+    void setServerName(std::string& directiveValue);
+    void setBodySize(std::string& directiveValue);
+    void setLocation(std::pair<std::string, Location>& location);
+
+    // gets
+    std::string getServerName(void) const;
+    uint32_t getHost(void) const;
+    uint16_t getPort(void) const;
+    int getBodySize(void) const;
+    Location* getLocation(std::string resource);
+
+    // other
+    void validateErrorCode(std::string& code);
+    void validateDirective(const std::string& directive);
+    void initReferences();
 };
 
-#endif //_VIRTUALSERVER_HPP_
+#endif // _VSERVER_HPP_

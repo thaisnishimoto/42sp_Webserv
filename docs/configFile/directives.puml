@@ -1,0 +1,25 @@
+@startuml
+
+object virtualServer {
+    <#lightBlue,#black>|= directives |= type |= configFile |= priority |= reason |= note | 
+    <#white>| resource | string | yes |mandatory | Without it, the server cannot handle a request to a specific location | This defines the resource path (e.g., ""/"") |
+    <#white>| allowed_methods | vector<string> | yes | default: GET | it's the most commonly used HTTP method | POST, DELETE can be optional |
+    <#white>| root | string | yes |mandatory | Essential for serving files | This specifies the directory on the filesystem that corresponds to the resource |
+    <#white>| auto_index | bool | yes | default: false | Security reason | directory listing |
+    <#white>| redirect | string | yes | default:"" | Default to a empty string (no redirect) | |
+    <#white>| cgi | bool | yes | default:false | Security reason | Enable it only for specific locations if configured |
+}
+
+object Location {
+    <#lightBlue,#black>|= directives |= type |= configFile |= priority |= reason |= note |
+    <#white>| host | uint32_t | yes | mandatory | Required to bind the server to a specific IP address | |
+    <#white>| port | uint16_t | yes | mandatory | A server cannot function without a port to listen on | |
+    <#white>| default | bool | no | default:false | A easy way to check if the specific virtual server is the default |
+    <#white>| server_name | string | yes | default: "" | must be verify in case conflict host:port | |
+    <#white>| error_page | map<string, string> | yes | default: "code" -> "error reason" | Default error page if not provided | |
+    <#white>| client_max_body_size | int | yes | default: 1024kb | Limiting the client body size prevents abuse | |  
+    <#white>| locations | map<string, Location> | yes | mandatory (at least one) | A server needs at least one location to handle request | |
+}
+
+virtualServer "1" *-- "many" Location
+@enduml
