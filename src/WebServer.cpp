@@ -1002,7 +1002,7 @@ void WebServer::handleGET(Connection& connection)
 		response.reasonPhrase = "Not Found";
 		//add content of specific file to body
 		//add proper content-length
-		//early return
+		return;
 	}
 
 	//check reading rights
@@ -1014,7 +1014,7 @@ void WebServer::handleGET(Connection& connection)
 		response.reasonPhrase = "Forbidden";
 		//add content of specific file to body
 		//add proper content-length
-		//early return
+		return;
 	}
 
 	//open file
@@ -1026,7 +1026,7 @@ void WebServer::handleGET(Connection& connection)
 		response.statusCode = "500";
 		response.reasonPhrase = "Internal Server Error";
 		//add body?
-		//early return
+		return;
 	}
 
 	std::string msg = "Opened " + localFileName;
