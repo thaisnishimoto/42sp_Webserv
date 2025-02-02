@@ -22,7 +22,7 @@ void Config::validateVirtualServer(VirtualServer& VirtualServer)
         if (_hasPort == false)
             errors += "'port' ";
     }
-    if (VirtualServer.getLocation("/") == NULL)
+    if (VirtualServer.validateFallbackLocation("/") == NULL)
     {
         errors += "Missing required root location '/' ";
     }

@@ -382,14 +382,16 @@ void WebServer::fillResponse(Connection& connection)
         //     response.statusCode = "404";
         //     response.reasonPhrase = "Not Found";
         // }
-        if (connection.virtualServer->locations.find("/cgi-bin") != connection.virtualServer->locations.end())
-        {
-            connection.location = connection.virtualServer->locations["/cgi-bin"];
-        }
-        if (isCgiRequest(connection))
+        // Location location;
+        // if (connection.virtualServer->_locations.find("/cgi-bin") != connection.virtualServer->_locations.end())
+        // {
+        //     connection.location = connection.virtualServer->_locations["/cgi-bin"];
+        // }
+        if (isCgiRequest(connection, location))
         {
             _logger.log(INFO, "Handling CGI Request"); 
-            // executeCGI();
+            // Cgi cgiHandler(connection);
+            // cgiHandler.execute();
             response.statusCode = "200";
             response.reasonPhrase = "OK";
             std::pair<std::string, std::string> pair(
@@ -399,11 +401,10 @@ void WebServer::fillResponse(Connection& connection)
         }
         else
         {
-            //static response
             response.statusCode = "200";
             response.reasonPhrase = "OK";
             std::pair<std::string, std::string> pair(
-                "origin", connection.virtualServer->name);
+                "origin", connection.virtualServer->getServerName());
             response.headerFields.insert(pair);
             response.body = request.body;
         }

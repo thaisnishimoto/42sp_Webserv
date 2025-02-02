@@ -44,9 +44,10 @@ class VirtualServer
     uint32_t getHost(void) const;
     uint16_t getPort(void) const;
     int getBodySize(void) const;
-    Location* getLocation(std::string resource);
+    Location& getLocation(VirtualServer* vServer, std::string locationName);
 
     // other
+    Location* validateFallbackLocation(std::string resource);
     void validateErrorCode(std::string& code);
     void validateDirective(const std::string& directive);
     void initReferences();

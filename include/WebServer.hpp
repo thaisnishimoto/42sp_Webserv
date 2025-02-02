@@ -9,6 +9,7 @@
 #include "Connection.hpp"
 #include "Logger.hpp"
 #include "VirtualServer.hpp"
+#include "Cgi.hpp"
 
 #include <cerrno>
 #include <cstdio>
@@ -85,7 +86,7 @@ class WebServer
     void fillResponse(Connection& connection);
 	void handleGET(Connection& connection);
 
-    bool isCgiRequest(Connection& connection);
+    bool isCgiRequest(Connection& connection, Location& location);
     int consumeNetworkBuffer(int connectionFd, std::string& connectionBuffer);
 };
 
