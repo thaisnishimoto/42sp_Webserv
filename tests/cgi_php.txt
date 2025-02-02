@@ -1,0 +1,4 @@
+verbose
+url = localhost:8081/cgi-bin/HelloCGI.php
+request = GET
+header = "Host: www.example4.com"
