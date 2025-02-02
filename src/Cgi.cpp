@@ -1,6 +1,13 @@
 #include "WebServer.hpp"
 #include "Logger.hpp"
 
+Cgi::Cgi(Connection& connection, Location& location)
+{
+    // std::string localFileName = "." + location.root + request.target;
+    _scriptPath = "." + location.getRoot() + connection.request.target; 
+    std::cout << "Script path: " << _scriptPath << std::endl;
+}
+
 void WebServer::parseQueryString(std::string& requestTarget, Request& request)
 {
     size_t pos = requestTarget.find('?');
