@@ -47,6 +47,7 @@ class VirtualServer
     Location* getLocation(std::string resource);
 
     // other
+    Location* validateFallbackLocation(std::string resource);
     void validateErrorCode(std::string& code);
     void validateDirective(const std::string& directive);
     void initReferences();

@@ -12,9 +12,9 @@ void WebServer::parseQueryString(std::string& requestTarget, Request& request)
     }
 }
 
-bool WebServer::isCgiRequest(Connection& connection)
+bool WebServer::isCgiRequest(Connection& connection, Location& location)
 {
-    if (connection.location->cgi == false)
+    if (location.isCGI() == false)
         return false;
     
     std::string target = connection.request.target;

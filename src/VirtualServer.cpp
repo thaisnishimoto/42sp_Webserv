@@ -64,6 +64,15 @@ void VirtualServer::validateErrorCode(std::string& code)
     }
 }
 
+Location* VirtualServer::validateFallbackLocation(std::string resource)
+{
+    if (_locations.find(resource) != _locations.end())
+    {
+        return &_locations[resource];
+    }
+    return NULL;
+}
+
 void VirtualServer::setDefaultsErrorsPage()
 {
     std::string errorsRoot = "/errors/";
@@ -181,13 +190,28 @@ uint16_t VirtualServer::getPort(void) const { return _port; }
 
 size_t VirtualServer::getBodySize(void) const { return _clientMaxBodySize; }
 
-Location* VirtualServer::getLocation(std::string resource)
+Location& VirtualServer::getLocation(VirtualServer* vServer, std::string locationName)
 {
-    if (_locations.find(resource) != _locations.end())
-    {
-        return &_locations[resource];
-    }
-    return NULL;
+	std::map<std::string, Location>::iterator it = vServer->_locations.begin();
+	std::map<std::string, Location>::iterator ite = vServer->_locations.end();
+
+	while (it != ite)
+	{
+		if (it->first == locationName)
+		{
+			return it->second;
+		}
+		++it;
+	}
+
+	size_t lastSlashPos = locationName.rfind("/");
+	if (lastSlashPos == 0)
+	{
+		return getLocation(vServer, "/");
+	}
+
+	std::string parentLocation = locationName.substr(0, locationName.rfind("/"));
+	return getLocation(vServer, parentLocation);
 }
 
 std::string VirtualServer::getErrorPage(std::string errorCode) const
