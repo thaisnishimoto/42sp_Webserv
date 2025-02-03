@@ -4,12 +4,13 @@
 #include "Response.hpp"
 #include "Connection.hpp"
 #include <vector>
+#include <sys/wait.h> //waitpid
 
 class Cgi
 {
   public:
     Cgi(Connection& connection, Location& location);
-    // std::string execute(void);
+    void execute(void);
     // Response& getHTTPResponse(void); 
 
   private:
