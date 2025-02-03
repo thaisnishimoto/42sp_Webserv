@@ -32,7 +32,8 @@ class WebServer
     int _epollFd;
     Config _config;
     std::set<uint16_t> _ports;
-    std::map<int, uint16_t> _socketsToPorts;
+    std::map<int, std::pair<uint32_t, uint16_t> > _socketsToPairs;
+	//delete line below?
     std::vector<VirtualServer> _virtualServers;
     std::map<std::pair<uint32_t, uint16_t>,
              std::map<std::string, VirtualServer> >
@@ -54,7 +55,7 @@ class WebServer
     void init(void);
     void run(void);
 
-    void setUpSockets(std::set<uint16_t> ports);
+    void setUpSockets(void);
     void bindSocket(void);
     void startListening(void);
 

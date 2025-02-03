@@ -24,8 +24,8 @@ WebServer::WebServer(const std::string& configFile)
     _unimplementedMethods.insert("TRACE");
 
     // hard coded ports
-    _ports.insert(8081);
-    _ports.insert(8082);
+    // _ports.insert(8081);
+    // _ports.insert(8082);
 }
 
 WebServer::~WebServer(void)
@@ -45,14 +45,16 @@ void WebServer::init(void)
     _virtualServersLookup = _config.getVirtualServers();
     _virtualServersDefault = _config.getDefaultsVirtualServers();
 
+	//select unique ports values for socket creating and binding
+
     _epollFd = epoll_create(1);
     if (_epollFd == -1)
     {
-        throw std::runtime_error(
-            "Server error: Could not create epoll instance");
+		_logger.log(ERROR, "Server error: Could not create epoll instance.");
+        throw std::exception();
     }
 
-    setUpSockets(_ports);
+    setUpSockets();
     bindSocket();
     startListening();
 
@@ -61,8 +63,8 @@ void WebServer::init(void)
 
 void WebServer::addSocketsToEpoll(void)
 {
-    std::map<int, uint16_t>::iterator it = _socketsToPorts.begin();
-    std::map<int, uint16_t>::iterator ite = _socketsToPorts.end();
+    std::map<int, std::pair<uint32_t, uint16_t> >::iterator it = _socketsToPairs.begin();
+    std::map<int, std::pair<uint32_t, uint16_t> >::iterator ite = _socketsToPairs.end();
 
     while (it != ite)
     {
@@ -73,18 +75,22 @@ void WebServer::addSocketsToEpoll(void)
         target_event.data.fd = sockFd;
         if (epoll_ctl(_epollFd, EPOLL_CTL_ADD, sockFd, &target_event) == -1)
         {
-            throw std::runtime_error(
-                "Server Error: Could not add fd to epoll instance");
+			_logger.log(ERROR, "Could not add fd to epoll instance");
+            throw std::exception();
         }
+		std::string msg = "Added " + itoa(sockFd) + " to epoll instance";
+		_logger.log(DEBUG, msg);
 
-        it++;
+        ++it;
     }
 }
 
-void WebServer::setUpSockets(std::set<uint16_t> ports)
+void WebServer::setUpSockets(void)
 {
-    std::set<uint16_t>::iterator it = ports.begin();
-    std::set<uint16_t>::iterator ite = ports.end();
+	std::map<std::pair<uint32_t, uint16_t>,
+		std::map<std::string, VirtualServer> >::iterator it = _virtualServersLookup.begin();
+	std::map<std::pair<uint32_t, uint16_t>,
+		std::map<std::string, VirtualServer> >::iterator ite = _virtualServersLookup.end();
 
     while (it != ite)
     {
@@ -104,15 +110,17 @@ void WebServer::setUpSockets(std::set<uint16_t> ports)
             throw std::runtime_error(
                 "Virtual Server Error: Could not set socket option");
         };
-        _socketsToPorts[sockFd] = *it;
-        it++;
+        _socketsToPairs[sockFd] = it->first;
+		std::string msg = "Created new listening socket. Fd: " + itoa(sockFd);
+		_logger.log(DEBUG, msg);
+        ++it;
     }
 }
 
 void WebServer::bindSocket(void)
 {
-    std::map<int, uint16_t>::iterator it = _socketsToPorts.begin();
-    std::map<int, uint16_t>::iterator ite = _socketsToPorts.end();
+    std::map<int, std::pair<uint32_t, uint16_t> >::iterator it = _socketsToPairs.begin();
+    std::map<int, std::pair<uint32_t, uint16_t> >::iterator ite = _socketsToPairs.end();
 
     while (it != ite)
     {
@@ -120,9 +128,10 @@ void WebServer::bindSocket(void)
         struct sockaddr_in server_address;
         std::memset(&server_address, 0, sizeof(sockaddr_in));
         // this will change later
+		// TODO change next like to allow for differente IPs
         server_address.sin_addr.s_addr = htonl(INADDR_ANY);
         server_address.sin_family = AF_INET;
-        server_address.sin_port = htons(it->second);
+        server_address.sin_port = htons(it->second.second);
 
         if (bind(sockFd, (struct sockaddr*)&server_address,
                  sizeof(sockaddr_in)) == -1)
@@ -132,14 +141,18 @@ void WebServer::bindSocket(void)
             throw std::runtime_error(
                 "Virtual Server Error: could not bind socket");
         };
+
+		std::string msg = "Binded socket " + itoa(sockFd) + " to IP bla and"
+			"port " + itoa(it->second.second);
+		_logger.log(DEBUG, msg);
         it++;
     }
 }
 
 void WebServer::startListening(void)
 {
-    std::map<int, uint16_t>::iterator it = _socketsToPorts.begin();
-    std::map<int, uint16_t>::iterator ite = _socketsToPorts.end();
+    std::map<int, std::pair<uint32_t, uint16_t> >::iterator it = _socketsToPairs.begin();
+    std::map<int, std::pair<uint32_t, uint16_t> >::iterator ite = _socketsToPairs.end();
 
     while (it != ite)
     {
@@ -201,7 +214,7 @@ void WebServer::run(void)
         for (int i = 0; i < fdsReady; i++)
         {
             int eventFd = _eventsList[i].data.fd;
-            if (_socketsToPorts.count(eventFd) == 1)
+            if (_socketsToPairs.count(eventFd) == 1)
             {
                 int connectionFd = acceptConnection(_epollFd, eventFd);
                 if (connectionFd == -1)
@@ -392,7 +405,7 @@ void WebServer::identifyVirtualServer(Connection& connection)
 {
 	//based on connection info host:port
     std::pair<uint32_t, uint16_t> key(connection.host, connection.port);
-    std::map<std::string, VirtualServer> vServersFromHostPort =
+    std::map<std::string, VirtualServer>& vServersFromHostPort =
         _virtualServersLookup[key];
     std::string serverName = connection.request.headerFields["host"];
     std::map<std::string, VirtualServer>::iterator it =
@@ -939,8 +952,8 @@ static bool isTargetDir(Request& request)
 
 static Location& getLocation(VirtualServer* vServer, std::string locationName)
 {
-	std::map<std::string, Location>::iterator it = vServer->locations.begin();
-	std::map<std::string, Location>::iterator ite = vServer->locations.end();
+	std::map<std::string, Location>::iterator it = vServer->_locations.begin();
+	std::map<std::string, Location>::iterator ite = vServer->_locations.end();
 
 	while (it != ite)
 	{
@@ -969,7 +982,7 @@ void WebServer::handleGET(Connection& connection)
 
 	//TODO
 	//change Location.allowedMethods from vector to set. easir to find elements
-	if (location.allowedMethods[0] != "GET")
+	if (location.isAllowedMethod("GET") == false)
 	{
 		response.statusCode = "405";
 		response.reasonPhrase = "Method Not Allowed";
@@ -981,11 +994,11 @@ void WebServer::handleGET(Connection& connection)
 	if (isTargetDir(request) == true)
 	{
 		_logger.log(DEBUG, "Target resource is a directory");
-		if (location.autoindex == true)
+		if (location.isAutoIndex() == true)
 		{
 			//build directorylisting
 			//early return
-			std::string localDirName = "." + location.root + request.target;
+			std::string localDirName = "." + location.getRoot() + request.target;
 			std::string msg = "Opening " + localDirName + " directory.";
 			_logger.log(DEBUG, msg);
 			DIR* dir = opendir(localDirName.c_str());
@@ -1006,7 +1019,7 @@ void WebServer::handleGET(Connection& connection)
 		// request.target += "index.html";
 	}
 
-	std::string localFileName = "." + location.root + request.target;
+	std::string localFileName = "." + location.getRoot() + request.target;
 
 	//check if file exists
 	if (access(localFileName.c_str(), F_OK) != 0)
