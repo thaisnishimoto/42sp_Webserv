@@ -386,10 +386,9 @@ void WebServer::fillResponse(Connection& connection)
         {
             _logger.log(INFO, "Handling CGI Request"); 
             Cgi cgiHandler(connection, location);
-            // cgiHandler.execute();
+            cgiHandler.execute();
             response.statusCode = "200";
             response.reasonPhrase = "OK";
-            std::cout << "server name: " << connection.virtualServer->getServerName() << std::endl;
             std::pair<std::string, std::string> pair(
                 "origin", connection.virtualServer->getServerName());
             response.headerFields.insert(pair);
@@ -540,7 +539,6 @@ void WebServer::identifyVirtualServer(Connection& connection)
         return;
     }
     connection.virtualServer = &(it->second);
-    std::cout << "server name: " << connection.virtualServer->getServerName() << std::endl;
 }
 
 void WebServer::parseRequest(Connection& connection)
