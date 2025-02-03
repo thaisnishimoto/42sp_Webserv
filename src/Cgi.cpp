@@ -37,3 +37,55 @@ bool WebServer::isCgiRequest(Connection& connection, Location& location)
     }
     return false;
 }
+
+void Cgi::execute(void)
+{
+    int pipeFd[2];
+    if (pipe(pipeFd) == -1)
+    {
+        std::cerr << "Pipe error" << std::endl;
+        return;
+    }
+
+    int pid = fork();
+    if (pid == -1)
+    {
+        std::cerr << "Fork error" << std::endl;
+        return;
+    }
+    
+    if (pid == 0)
+    {
+        //if POST, read body from pipe[0]
+        close(pipeFd[0]);
+
+        dup2(pipeFd[1], STDOUT_FILENO);
+        close(pipeFd[1]);
+
+        char* const argv[] = {const_cast<char *>("/usr/bin/python3"), const_cast<char *>(_scriptPath.c_str()), NULL};    
+        char* const envp[] = {NULL};
+        
+        execve("/usr/bin/python3", argv, envp);
+        std::cerr << "Execve error" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    //if POST, write body to pipe[1]
+    close(pipeFd[1]);
+
+    int status;
+    waitpid(pid, &status, 0);
+
+    char buff[101];
+    ssize_t bytes = read(pipeFd[0], buff, 100);
+    if (bytes > 0)
+    {
+        // buff[bytes] = '\0';
+        std::cout << "Script output: " << buff << std::endl;
+    }
+    else
+    {
+        std::cerr << "Error reading from pipe" << std::endl;
+    }
+
+    close(pipeFd[0]);
+}
