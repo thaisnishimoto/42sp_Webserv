@@ -12,6 +12,7 @@ class Cgi
     Cgi(Connection& connection, Location& location);
     void execute(void);
     // Response& getHTTPResponse(void); 
+    std::string getScriptPath(void) {return _scriptPath;}
 
   private:
     std::string _scriptPath;

@@ -473,6 +473,14 @@ void WebServer::fillResponse(Connection& connection)
         {
             _logger.log(INFO, "Handling CGI Request"); 
             Cgi cgiHandler(connection, location);
+         	if (access(cgiHandler.getScriptPath().c_str(), X_OK) != 0)
+    		{
+        		std::string msg = "CGI script it not executable: " + cgiHandler.getScriptPath();
+                _logger.log(DEBUG, msg);
+                response.statusCode = "403";
+                response.reasonPhrase = "Forbidden";
+                return;
+            }
             cgiHandler.execute();
             response.statusCode = "200";
             response.reasonPhrase = "OK";
