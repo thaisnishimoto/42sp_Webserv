@@ -98,18 +98,17 @@ void WebServer::setUpSockets(void)
         sockFd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
         if (sockFd == -1)
         {
-            std::cerr << std::strerror(errno) << std::endl;
-            throw std::runtime_error(
-                "Virtual Server Error: could not create socket");
+			_logger.log(ERROR, "Could not create socket");
+            throw std::exception();
         }
         int opt = 1;
         if (setsockopt(sockFd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) ==
             -1)
         {
-            std::cerr << std::strerror(errno) << std::endl;
-            throw std::runtime_error(
-                "Virtual Server Error: Could not set socket option");
+			_logger.log(ERROR, "Could not set socket option");
+            throw std::exception();
         };
+
         _socketsToPairs[sockFd] = it->first;
 		std::string msg = "Created new listening socket. Fd: " + itoa(sockFd);
 		_logger.log(DEBUG, msg);
@@ -137,9 +136,8 @@ void WebServer::bindSocket(void)
                  sizeof(sockaddr_in)) == -1)
         {
             close(sockFd);
-            std::cerr << std::strerror(errno) << std::endl;
-            throw std::runtime_error(
-                "Virtual Server Error: could not bind socket");
+			_logger.log(ERROR, "Could not bind socket");
+            throw std::exception();
         };
 
 		std::string msg = "Binded socket " + itoa(sockFd) + " to IP bla and"
@@ -160,9 +158,8 @@ void WebServer::startListening(void)
         if (listen(sockFd, 10) == -1)
         {
             close(sockFd);
-            std::cerr << std::strerror(errno) << std::endl;
-            throw std::runtime_error(
-                "Virtual Server Error: could not activate listening");
+			_logger.log(ERROR, "Could not activate listening");
+            throw std::exception();
         };
         it++;
     }
@@ -410,10 +407,11 @@ void WebServer::identifyVirtualServer(Connection& connection)
     std::string serverName = connection.request.headerFields["host"];
     std::map<std::string, VirtualServer>::iterator it =
         vServersFromHostPort.find(serverName);
+
     if (it == vServersFromHostPort.end())
     {
         // set default
-        std::cerr << "Virtual server not found" << std::endl;
+		_logger.log(DEBUG, "Could not match virtualServer by name, using default.");
         connection.virtualServer = _virtualServersDefault[key];
         return;
     }
