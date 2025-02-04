@@ -294,7 +294,7 @@ Config::getDefaultsVirtualServers(void)
     return _defaultVirtualServers;
 }
 
-std::map<std::pair<uint32_t, uint16_t>, std::map<std::string, VirtualServer>>
+std::map<std::pair<uint32_t, uint16_t>, std::map<std::string, VirtualServer> >
 Config::getVirtualServers(void)
 {
     return _virtualServers;

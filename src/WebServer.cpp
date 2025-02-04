@@ -334,7 +334,7 @@ static void fillLocalPathname(Request& request, Location& location)
 		request.localPathname = "." + location.getRoot();
 		request.localPathname += request.target;
 		//TODO
-		request.localPathname += "index.html";
+		request.localPathname += location.getIndex();
 		request.isDir = false;
 		return;
 	}
