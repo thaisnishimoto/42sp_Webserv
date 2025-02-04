@@ -180,12 +180,14 @@ void Config::createVirtualServers()
         {
             // handle default VirtualServer
             vserver.setDefault();
-            _defaultVirtualServers[pairHostToPort] = &vserver;
 
             // add first VirtualServer for this host:port
             std::map<std::string, VirtualServer> nameToVirtualServer;
             nameToVirtualServer.insert(pairNameToVirtualServers);
             _virtualServers[pairHostToPort] = nameToVirtualServer;
+
+			//setting default server
+			_defaultVirtualServers[pairHostToPort] = &_virtualServers[pairHostToPort][vserver.getServerName()];
         }
         it++;
     }
