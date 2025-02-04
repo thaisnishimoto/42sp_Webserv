@@ -335,12 +335,12 @@ static void fillLocalPathname(Request& request, Location& location)
 		request.localPathname += request.target;
 		//TODO
 		request.localPathname += "index.html";
+		request.isDir = false;
 		return;
 	}
 
 	request.localPathname = "." + location.getRoot();
 	request.localPathname += request.target;
-
 }
 
 void WebServer::fillResponse(Connection& connection)
