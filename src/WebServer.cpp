@@ -9,7 +9,9 @@
 #include <fstream> //ifstream
 
 static bool validateTransferEncoding(Request& request);
+static bool isTargetDir(Request& request);
 static void fillLocationName(Request& request);
+static void fillLocalPathname(Request& request, Location& location);
 static Location& getLocation(VirtualServer* vServer,
 							 std::string locationName);
 
@@ -319,6 +321,27 @@ static void fillLocationName(Request& request)
 	return;
 }
 
+static void fillLocalPathname(Request& request, Location& location)
+{
+	if (isTargetDir(request) == true)
+	{
+		request.isDir = true;
+	}
+
+	if (request.isDir == true && location.isAutoIndex() == false)
+	{
+		request.localPathname = "." + location.getRoot();
+		request.localPathname += request.target;
+		//TODO
+		request.localPathname += "index.html";
+		return;
+	}
+
+	request.localPathname = "." + location.getRoot();
+	request.localPathname += request.target;
+
+}
+
 void WebServer::fillResponse(Connection& connection)
 {
     Request& request = connection.request;
@@ -338,9 +361,12 @@ void WebServer::fillResponse(Connection& connection)
         response.statusCode = "413";
         response.reasonPhrase = "Content Too Large";
     }
+	//TODO
 	//elseif not implemented methods
     else
     {
+		//TODO
+		//handle redirects here
         identifyVirtualServer(connection);
 		fillLocationName(request);
 
@@ -354,39 +380,51 @@ void WebServer::fillResponse(Connection& connection)
 			response.headerFields["Allow"] = location.getAllowedMethods(); 
 			return;
 		}
-		
 
+		fillLocalPathname(request, location);
 
-		//TODO
-		//handle redirects here
+		//404
+		if (access(request.localPathname.c_str(), F_OK) != 0)
+		{
+			std::string msg = "File " + request.localPathname + " does not exist.";
+			_logger.log(DEBUG, msg);
+			response.statusCode = "404";
+			response.reasonPhrase = "Not Found";
 
-		//allowed method
+			VirtualServer& vServer = *connection.virtualServer;
+			std::string errorFilePath = vServer.getErrorPage("404");
+			std::ifstream errorFile(errorFilePath.c_str());
+			if (errorFile.is_open() == false)
+			{
+				std::string msg = "WebServ could not open error page"
+					"for some reason.";
+				_logger.log(DEBUG, msg);
+				response.statusCode = "500";
+				response.reasonPhrase = "Internal Server Error";
+				return;
+			}
 
-		//resource found
+			std::istreambuf_iterator<char> it(errorFile);
+			std::istreambuf_iterator<char> ite;
+			std::string fileContent(it, ite);
+			errorFile.close();
+			response.body = fileContent;
+			response.headerFields["content-length"] = itoa(static_cast<int>(fileContent.length()));
+			return;
+		}
 
-		//
+		//resource not allowed - 403
 
 		if (request.method == "GET")
 		{
 			handleGET(connection);
-			std::cout << "IT IS A GET" << std::endl;
 		}
 		else if (request.method == "POST")
 		{
-			std::cout << "IT IS A POST" << std::endl;
 		}
 		else if (request.method == "DELETE")
 		{
-			std::cout << "IT IS A DELETE" << std::endl;
 		}
-
-		//old code
-        // response.statusCode = "200";
-        // response.reasonPhrase = "OK";
-        // std::pair<std::string, std::string> pair(
-        //     "origin", connection.virtualServer->name);
-        // response.headerFields.insert(pair);
-        // response.body = request.body;
     }
 }
 
@@ -1001,17 +1039,6 @@ void WebServer::handleGET(Connection& connection)
 	Response& response = connection.response;
 	Location& location = getLocation(connection.virtualServer, request.locationName);
 
-	//TODO
-	//change Location.allowedMethods from vector to set. easir to find elements
-	if (location.isAllowedMethod("GET") == false)
-	{
-		response.statusCode = "405";
-		response.reasonPhrase = "Method Not Allowed";
-		response.body = "PROIBIDO, CARAI";
-		response.headerFields["content-length"] = itoa(static_cast<int>(response.body.length()));
-		return;
-	}
-
 	if (isTargetDir(request) == true)
 	{
 		_logger.log(DEBUG, "Target resource is a directory");
@@ -1041,18 +1068,6 @@ void WebServer::handleGET(Connection& connection)
 	}
 
 	std::string localFileName = "." + location.getRoot() + request.target;
-
-	//check if file exists
-	if (access(localFileName.c_str(), F_OK) != 0)
-	{
-		std::string msg = "File " + localFileName + " does not exist.";
-		_logger.log(DEBUG, msg);
-		response.statusCode = "404";
-		response.reasonPhrase = "Not Found";
-		//add content of specific file to body
-		//add proper content-length
-		return;
-	}
 
 	//check reading rights
 	if (access(localFileName.c_str(), R_OK) != 0)

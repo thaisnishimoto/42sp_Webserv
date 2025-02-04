@@ -15,6 +15,9 @@ class Request
 
 	std::string locationName;
 
+	bool isDir;
+	std::string localPathname;
+
     bool parsedMethod;
     bool parsedRequestLine;
     bool parsedHeader;

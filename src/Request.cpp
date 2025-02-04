@@ -12,4 +12,5 @@ Request::Request(void)
     continueParsing = true;
     contentLength = 0;
     isChunked = false;
+	isDir = false;
 }

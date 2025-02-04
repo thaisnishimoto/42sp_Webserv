@@ -40,6 +40,7 @@ class VirtualServer
 
     // gets
     std::string getServerName(void) const;
+	std::string getErrorPage(std::string errorCode) const;
     uint32_t getHost(void) const;
     uint16_t getPort(void) const;
     int getBodySize(void) const;
