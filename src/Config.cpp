@@ -65,6 +65,10 @@ void Config::fillLocation(std::stringstream& ss, Location& location)
         {
             location.setRoot(value);
         }
+        if (token == "index")
+        {
+            location.setIndex(value);
+        }
         if (token == "autoindex")
         {
             if (value == "on")
@@ -186,8 +190,9 @@ void Config::createVirtualServers()
             nameToVirtualServer.insert(pairNameToVirtualServers);
             _virtualServers[pairHostToPort] = nameToVirtualServer;
 
-			//setting default server
-			_defaultVirtualServers[pairHostToPort] = &_virtualServers[pairHostToPort][vserver.getServerName()];
+            // setting default server
+            _defaultVirtualServers[pairHostToPort] =
+                &_virtualServers[pairHostToPort][vserver.getServerName()];
         }
         it++;
     }
@@ -289,7 +294,7 @@ Config::getDefaultsVirtualServers(void)
     return _defaultVirtualServers;
 }
 
-std::map<std::pair<uint32_t, uint16_t>, std::map<std::string, VirtualServer> >
+std::map<std::pair<uint32_t, uint16_t>, std::map<std::string, VirtualServer>>
 Config::getVirtualServers(void)
 {
     return _virtualServers;
