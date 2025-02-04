@@ -362,8 +362,12 @@ void WebServer::fillResponse(Connection& connection)
         response.statusCode = "413";
         response.reasonPhrase = "Content Too Large";
     }
-	//TODO
-	//elseif not implemented methods
+	else if (_unimplementedMethods.find(request.method)
+		!= _unimplementedMethods.end())
+	{
+        response.statusCode = "501";
+        response.reasonPhrase = "Not Implemented";
+	}
     else
     {
 		//TODO
@@ -440,9 +444,11 @@ void WebServer::fillResponse(Connection& connection)
 		}
 		else if (request.method == "POST")
 		{
+			//TODO
 		}
 		else if (request.method == "DELETE")
 		{
+			//TODO
 		}
     }
 }
