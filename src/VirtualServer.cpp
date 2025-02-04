@@ -189,3 +189,20 @@ Location* VirtualServer::getLocation(std::string resource)
     }
     return NULL;
 }
+
+std::string VirtualServer::getErrorPage(std::string errorCode) const
+{
+	std::string errorPage;
+	std::map<std::string, std::string>::const_iterator it;
+
+	it = _errorsPage.find(errorCode);
+
+	if (it == _errorsPage.end())
+	{
+		return errorPage;
+	}
+
+	errorPage = "./content/";
+	errorPage += it->second;
+	return errorPage;
+}

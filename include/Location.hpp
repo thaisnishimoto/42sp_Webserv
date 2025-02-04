@@ -13,6 +13,7 @@ class Location
     std::string _resource;
     std::set<std::string> _allowedMethods;
     std::string _root;
+    std::string _index;
     bool _autoIndex;
     std::string _redirect;
     bool _cgi;
@@ -30,6 +31,7 @@ class Location
     void setAllowedMethods(std::stringstream& method);
     void setRoot(std::string& path);
     void setAutoIndex(bool value);
+    void setIndex(std::string& file);
     void setRedirect(std::string& path);
     void setCGI(bool value);
 
@@ -37,6 +39,8 @@ class Location
     std::string getResource(void) const;
     std::string getRoot(void) const;
     std::string getRedirect(void) const;
+    std::string getAllowedMethods(void) const;
+    std::string getIndex(void) const;
 
     // verifiers
     bool isCGI(void) const;

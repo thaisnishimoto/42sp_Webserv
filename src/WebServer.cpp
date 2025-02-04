@@ -1,6 +1,20 @@
 #include "WebServer.hpp"
+#include "Logger.hpp"
+#include "utils.hpp"
+#include <cstdlib>
+#include <fcntl.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <dirent.h> //opendir
+#include <fstream> //ifstream
 
 static bool validateTransferEncoding(Request& request);
+static bool isTargetDir(Request& request);
+static void fillLocationName(Request& request);
+static void fillLocalPathname(Request& request, Location& location);
+static Location& getLocation(VirtualServer* vServer,
+							 std::string locationName);
+static std::string baseDirectoryListing(void);
 
 WebServer::WebServer(const std::string& configFile)
     : _config(configFile), _logger(DEBUG2)
@@ -16,8 +30,8 @@ WebServer::WebServer(const std::string& configFile)
     _unimplementedMethods.insert("TRACE");
 
     // hard coded ports
-    _ports.insert(8081);
-    _ports.insert(8082);
+    // _ports.insert(8081);
+    // _ports.insert(8082);
 }
 
 WebServer::~WebServer(void)
@@ -37,14 +51,16 @@ void WebServer::init(void)
     _virtualServersLookup = _config.getVirtualServers();
     _virtualServersDefault = _config.getDefaultsVirtualServers();
 
+	//select unique ports values for socket creating and binding
+
     _epollFd = epoll_create(1);
     if (_epollFd == -1)
     {
-        throw std::runtime_error(
-            "Server error: Could not create epoll instance");
+		_logger.log(ERROR, "Server error: Could not create epoll instance.");
+        throw std::exception();
     }
 
-    setUpSockets(_ports);
+    setUpSockets();
     bindSocket();
     startListening();
 
@@ -53,8 +69,8 @@ void WebServer::init(void)
 
 void WebServer::addSocketsToEpoll(void)
 {
-    std::map<int, uint16_t>::iterator it = _socketsToPorts.begin();
-    std::map<int, uint16_t>::iterator ite = _socketsToPorts.end();
+    std::map<int, std::pair<uint32_t, uint16_t> >::iterator it = _socketsToPairs.begin();
+    std::map<int, std::pair<uint32_t, uint16_t> >::iterator ite = _socketsToPairs.end();
 
     while (it != ite)
     {
@@ -65,18 +81,22 @@ void WebServer::addSocketsToEpoll(void)
         target_event.data.fd = sockFd;
         if (epoll_ctl(_epollFd, EPOLL_CTL_ADD, sockFd, &target_event) == -1)
         {
-            throw std::runtime_error(
-                "Server Error: Could not add fd to epoll instance");
+			_logger.log(ERROR, "Could not add fd to epoll instance");
+            throw std::exception();
         }
+		std::string msg = "Added fd " + itoa(sockFd) + " to epoll instance";
+		_logger.log(DEBUG, msg);
 
-        it++;
+        ++it;
     }
 }
 
-void WebServer::setUpSockets(std::set<uint16_t> ports)
+void WebServer::setUpSockets(void)
 {
-    std::set<uint16_t>::iterator it = ports.begin();
-    std::set<uint16_t>::iterator ite = ports.end();
+	std::map<std::pair<uint32_t, uint16_t>,
+		std::map<std::string, VirtualServer> >::iterator it = _virtualServersLookup.begin();
+	std::map<std::pair<uint32_t, uint16_t>,
+		std::map<std::string, VirtualServer> >::iterator ite = _virtualServersLookup.end();
 
     while (it != ite)
     {
@@ -84,27 +104,28 @@ void WebServer::setUpSockets(std::set<uint16_t> ports)
         sockFd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
         if (sockFd == -1)
         {
-            std::cerr << std::strerror(errno) << std::endl;
-            throw std::runtime_error(
-                "Virtual Server Error: could not create socket");
+			_logger.log(ERROR, "Could not create socket");
+            throw std::exception();
         }
         int opt = 1;
         if (setsockopt(sockFd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) ==
             -1)
         {
-            std::cerr << std::strerror(errno) << std::endl;
-            throw std::runtime_error(
-                "Virtual Server Error: Could not set socket option");
+			_logger.log(ERROR, "Could not set socket option");
+            throw std::exception();
         };
-        _socketsToPorts[sockFd] = *it;
-        it++;
+
+        _socketsToPairs[sockFd] = it->first;
+		std::string msg = "Created new listening socket. Fd: " + itoa(sockFd);
+		_logger.log(DEBUG, msg);
+        ++it;
     }
 }
 
 void WebServer::bindSocket(void)
 {
-    std::map<int, uint16_t>::iterator it = _socketsToPorts.begin();
-    std::map<int, uint16_t>::iterator ite = _socketsToPorts.end();
+    std::map<int, std::pair<uint32_t, uint16_t> >::iterator it = _socketsToPairs.begin();
+    std::map<int, std::pair<uint32_t, uint16_t> >::iterator ite = _socketsToPairs.end();
 
     while (it != ite)
     {
@@ -112,26 +133,30 @@ void WebServer::bindSocket(void)
         struct sockaddr_in server_address;
         std::memset(&server_address, 0, sizeof(sockaddr_in));
         // this will change later
+		// TODO change next like to allow for differente IPs
         server_address.sin_addr.s_addr = htonl(INADDR_ANY);
         server_address.sin_family = AF_INET;
-        server_address.sin_port = htons(it->second);
+        server_address.sin_port = htons(it->second.second);
 
         if (bind(sockFd, (struct sockaddr*)&server_address,
                  sizeof(sockaddr_in)) == -1)
         {
             close(sockFd);
-            std::cerr << std::strerror(errno) << std::endl;
-            throw std::runtime_error(
-                "Virtual Server Error: could not bind socket");
+			_logger.log(ERROR, "Could not bind socket");
+            throw std::exception();
         };
+
+		std::string msg = "Binded socket " + itoa(sockFd) + " to IP bla and"
+			"port " + itoa(it->second.second);
+		_logger.log(DEBUG, msg);
         it++;
     }
 }
 
 void WebServer::startListening(void)
 {
-    std::map<int, uint16_t>::iterator it = _socketsToPorts.begin();
-    std::map<int, uint16_t>::iterator ite = _socketsToPorts.end();
+    std::map<int, std::pair<uint32_t, uint16_t> >::iterator it = _socketsToPairs.begin();
+    std::map<int, std::pair<uint32_t, uint16_t> >::iterator ite = _socketsToPairs.end();
 
     while (it != ite)
     {
@@ -139,9 +164,8 @@ void WebServer::startListening(void)
         if (listen(sockFd, 10) == -1)
         {
             close(sockFd);
-            std::cerr << std::strerror(errno) << std::endl;
-            throw std::runtime_error(
-                "Virtual Server Error: could not activate listening");
+			_logger.log(ERROR, "Could not activate listening");
+            throw std::exception();
         };
         it++;
     }
@@ -193,7 +217,7 @@ void WebServer::run(void)
         for (int i = 0; i < fdsReady; i++)
         {
             int eventFd = _eventsList[i].data.fd;
-            if (_socketsToPorts.count(eventFd) == 1)
+            if (_socketsToPairs.count(eventFd) == 1)
             {
                 int connectionFd = acceptConnection(_epollFd, eventFd);
                 if (connectionFd == -1)
@@ -283,6 +307,41 @@ void WebServer::modifyEventInterest(int epollFd, int eventFd, uint32_t event)
     epoll_ctl(epollFd, EPOLL_CTL_MOD, eventFd, &target_event);
 }
 
+static void fillLocationName(Request& request)
+{
+	std::string& target = request.target;
+	size_t lastSlashPos = target.rfind("/");
+
+	if (lastSlashPos != 0)
+	{
+		request.locationName = target.substr(0, lastSlashPos);
+		return;
+	}
+
+	request.locationName = "/";
+	return;
+}
+
+static void fillLocalPathname(Request& request, Location& location)
+{
+	if (isTargetDir(request) == true)
+	{
+		request.isDir = true;
+	}
+
+	if (request.isDir == true && location.isAutoIndex() == false)
+	{
+		request.localPathname = "." + location.getRoot();
+		request.localPathname += request.target;
+		request.localPathname += location.getIndex();
+		request.isDir = false;
+		return;
+	}
+
+	request.localPathname = "." + location.getRoot();
+	request.localPathname += request.target;
+}
+
 void WebServer::fillResponse(Connection& connection)
 {
     Request& request = connection.request;
@@ -302,41 +361,153 @@ void WebServer::fillResponse(Connection& connection)
         response.statusCode = "413";
         response.reasonPhrase = "Content Too Large";
     }
+	else if (_unimplementedMethods.find(request.method)
+		!= _unimplementedMethods.end())
+	{
+        response.statusCode = "501";
+        response.reasonPhrase = "Not Implemented";
+	}
     else
     {
+		//TODO
+		//handle redirects here
         identifyVirtualServer(connection);
-        response.statusCode = "200";
-        response.reasonPhrase = "OK";
-        std::pair<std::string, std::string> pair(
-            "origin", connection.virtualServer->getServerName());
-        response.headerFields.insert(pair);
-        response.body = request.body;
+		fillLocationName(request);
+
+		Location& location = getLocation(connection.virtualServer,
+								   request.locationName);
+		if (location.getRedirect().empty() == false)
+		{
+			std::string msg = "Location redirects to ";
+			msg += location.getRedirect();
+			_logger.log(DEBUG, msg);
+
+			response.statusCode = "301";
+			response.reasonPhrase = "Moved Permanently";
+			response.headerFields["location"] = location.getRedirect(); 
+			return;
+		}
+
+		if (location.isAllowedMethod(request.method) == false)
+		{
+			response.statusCode = "405";
+			response.reasonPhrase = "Method Not Allowed";
+			response.headerFields["allow"] = location.getAllowedMethods(); 
+			return;
+		}
+
+		fillLocalPathname(request, location);
+
+		//404
+		if (access(request.localPathname.c_str(), F_OK) != 0)
+		{
+			std::string msg = "File " + request.localPathname + " does not exist.";
+			_logger.log(DEBUG, msg);
+			response.statusCode = "404";
+			response.reasonPhrase = "Not Found";
+
+			VirtualServer& vServer = *connection.virtualServer;
+			std::string errorFilePath = vServer.getErrorPage("404");
+			std::ifstream errorFile(errorFilePath.c_str());
+			if (errorFile.is_open() == false)
+			{
+				std::string msg = "WebServ could not open error page"
+					"for some reason.";
+				_logger.log(DEBUG, msg);
+				response.statusCode = "500";
+				response.reasonPhrase = "Internal Server Error";
+				return;
+			}
+
+			std::istreambuf_iterator<char> it(errorFile);
+			std::istreambuf_iterator<char> ite;
+			std::string fileContent(it, ite);
+			errorFile.close();
+			response.body = fileContent;
+			response.headerFields["content-length"] = itoa(static_cast<int>(fileContent.length()));
+			return;
+		}
+
+		//403
+		if (request.isDir == true &&
+			access(request.localPathname.c_str(), X_OK) != 0)
+		{
+			std::string msg = "WebServ does not have access rights for " + request.localPathname + " directory.";
+			_logger.log(DEBUG, msg);
+			response.statusCode = "403";
+			response.reasonPhrase = "Forbidden";
+			return;
+		}
+		if (request.isDir == false &&
+			access(request.localPathname.c_str(), R_OK) != 0)
+		{
+			std::string msg = "WebServ does not have access rights for " + request.localPathname + ".";
+			_logger.log(DEBUG, msg);
+			response.statusCode = "403";
+			response.reasonPhrase = "Forbidden";
+			return;
+		}
+
+		if (request.method == "GET")
+		{
+			handleGET(connection);
+		}
+		else if (request.method == "POST")
+		{
+			//TODO
+		}
+		else if (request.method == "DELETE")
+		{
+			//TODO
+		}
     }
 }
 
 void WebServer::buildResponseBuffer(Connection& connection)
 {
-    connection.responseBuffer = "HTTP/1.1 " + connection.response.statusCode +
-                                " " + connection.response.reasonPhrase + "\r\n";
-    connection.responseBuffer += "content-length: 10\r\n";
-    connection.responseBuffer +=
-        "origin: " + connection.response.headerFields["origin"] + "\r\n\r\n";
-    connection.responseBuffer += connection.response.body;
+	Response& response = connection.response;
+	std::string& buffer = connection.responseBuffer;
+
+	//status line
+	buffer = "HTTP/1.1 ";
+	buffer += response.statusCode;
+	buffer += " ";
+	buffer += response.reasonPhrase;
+	buffer += "\r\n";
+
+	//headers
+	std::map<std::string, std::string>::iterator it = response.headerFields.begin();
+	std::map<std::string, std::string>::iterator ite = response.headerFields.end();
+
+	while (it != ite)
+	{
+		buffer += it->first;
+		buffer += ": ";
+		buffer += it->second;
+		buffer += "\r\n";
+		++it;
+	}
+	buffer += "\r\n";
+
+	//body
+    buffer += connection.response.body;
 }
 
 // WIP
 void WebServer::identifyVirtualServer(Connection& connection)
 {
+	//based on connection info host:port
     std::pair<uint32_t, uint16_t> key(connection.host, connection.port);
-    std::map<std::string, VirtualServer> vServersFromHostPort =
+    std::map<std::string, VirtualServer>& vServersFromHostPort =
         _virtualServersLookup[key];
     std::string serverName = connection.request.headerFields["host"];
     std::map<std::string, VirtualServer>::iterator it =
         vServersFromHostPort.find(serverName);
+
     if (it == vServersFromHostPort.end())
     {
         // set default
-        std::cerr << "Virtual server not found" << std::endl;
+		_logger.log(INFO, "Could not match virtualServer by name, using default.");
         connection.virtualServer = _virtualServersDefault[key];
         return;
     }
@@ -859,4 +1030,129 @@ void WebServer::setNonBlocking(int fd)
         throw std::runtime_error(
             "Server Error: Could not set fd to NonBlocking");
     }
+}
+
+static bool isTargetDir(Request& request)
+{
+	std::string& target = request.target;
+	size_t endPos = target.length() - 1;
+
+	if (target[endPos] == '/')
+	{
+		return true;
+	}
+	return false;
+}
+
+static Location& getLocation(VirtualServer* vServer, std::string locationName)
+{
+	std::map<std::string, Location>::iterator it = vServer->_locations.begin();
+	std::map<std::string, Location>::iterator ite = vServer->_locations.end();
+
+	while (it != ite)
+	{
+		if (it->first == locationName)
+		{
+			return it->second;
+		}
+		++it;
+	}
+
+	size_t lastSlashPos = locationName.rfind("/");
+	if (lastSlashPos == 0)
+	{
+		return getLocation(vServer, "/");
+	}
+
+	std::string parentLocation = locationName.substr(0, locationName.rfind("/"));
+	return getLocation(vServer, parentLocation);
+}
+
+void WebServer::handleGET(Connection& connection)
+{
+	Request& request = connection.request;
+	Response& response = connection.response;
+	Location& location = getLocation(connection.virtualServer, request.locationName);
+
+	if (request.isDir == true)
+	{
+		_logger.log(DEBUG, "Target resource is a directory");
+		if (location.isAutoIndex() == true)
+		{
+			//build directorylisting
+			std::string msg = "Directory listing if on";
+			_logger.log(DEBUG, msg);
+
+			std::string dirList = baseDirectoryListing();
+			dirList += "<h1> Contents of " + request.target;
+			dirList += "</h1>\n<ul>\n";
+
+			std::string localDirName = "." + location.getRoot() + request.target;
+			DIR* dir = opendir(localDirName.c_str());
+			struct dirent* dirContent = readdir(dir);
+			while (dirContent != NULL)
+			{
+				dirList += "<li>";
+				dirList += dirContent->d_name;
+				if (dirContent->d_type == DT_DIR)
+				{
+					dirList += "/";
+				}
+				dirList += "</li>\n";
+				dirContent = readdir(dir);
+			}
+			dirList += "</ul>\n</body>\n</html>";
+
+			closedir(dir);
+			response.statusCode = "200";
+			response.reasonPhrase = "OK";
+			response.headerFields["content-length"] = itoa(static_cast<int>(dirList.size()));
+			response.body = dirList;
+			return;
+		}
+	}
+
+	//open file
+	std::ifstream file(request.localPathname.c_str());
+	if (file.is_open() == false)
+	{
+		std::string msg = "WebServ could not open" + request.localPathname + "for some reason.";
+		_logger.log(DEBUG, msg);
+		response.statusCode = "500";
+		response.reasonPhrase = "Internal Server Error";
+		//add body?
+		return;
+	}
+
+	std::string msg = "Opened " + request.localPathname;
+	_logger.log(DEBUG, msg);
+
+	//read content of file using special std::string constructor
+	std::istreambuf_iterator<char> it(file);
+	std::istreambuf_iterator<char> ite;
+	std::string fileContent(it, ite);
+
+	file.close();
+
+	msg = "Filling response object with data from " + request.localPathname;
+	_logger.log(DEBUG, msg);
+	response.body = fileContent;
+	response.headerFields["content-length"] = itoa(static_cast<int>(fileContent.length()));
+	response.statusCode = "200";
+	response.reasonPhrase = "OK";
+}
+
+static std::string baseDirectoryListing(void)
+{
+	std::string content;
+	content = "<!DOCTYPE html>\n";
+	content+="<html lang=\"en\">\n";
+	content+="<head>\n";
+	content+="<meta charset=\"UTF-8\">\n";
+	content+="<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n";
+	content+="<title>Unordered List Example</title>\n";
+	content+="</head>\n";
+	content+="<body>\n";
+
+	return content;
 }

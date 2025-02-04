@@ -1,0 +1,4 @@
+verbose
+url = localhost:8081/path/to/resource/file.txt
+request = GET
+header = "Host: Model"

@@ -6,6 +6,13 @@ title Reacting to methods (NO CGI)
 
 start
 
+:identify location;
+if (is a redirect set in this location?) then (yes)
+	: 301 Moved Permanently;
+	stop;
+else (no)
+endif
+
 split
 	: GET;
 	if (found a representation of the target resource?) then (no)
@@ -13,9 +20,6 @@ split
 		stop
 	else if (are permissions ok for the representation?) then (no)
 		: 403 Unauthroized;
-		stop
-	else if (has the resource been moved?) then (yes)
-		: 301 Moved Permanently;
 		stop
 	else (no)
 		: 200 OK;
@@ -29,9 +33,6 @@ split again
 		stop
 	else if (are permissions ok for the representation?) then (no)
 		: 403 Unauthroized;
-		stop
-	else if (has the resource been moved?) then (yes)
-		: 301 Moved Permanently;
 		stop
 	else (no)
 		split
@@ -56,9 +57,6 @@ split again
 		stop
 	else if (does resource state prevent it from being deleted?) then (yes)
 		#pink: 409 Conflict;
-		stop
-	else if (has the resource been moved?) then (yes)
-		: 301 Moved Permanently;
 		stop
 	else (no)
 		split

@@ -65,6 +65,10 @@ void Config::fillLocation(std::stringstream& ss, Location& location)
         {
             location.setRoot(value);
         }
+        if (token == "index")
+        {
+            location.setIndex(value);
+        }
         if (token == "autoindex")
         {
             if (value == "on")
@@ -180,12 +184,15 @@ void Config::createVirtualServers()
         {
             // handle default VirtualServer
             vserver.setDefault();
-            _defaultVirtualServers[pairHostToPort] = &vserver;
 
             // add first VirtualServer for this host:port
             std::map<std::string, VirtualServer> nameToVirtualServer;
             nameToVirtualServer.insert(pairNameToVirtualServers);
             _virtualServers[pairHostToPort] = nameToVirtualServer;
+
+            // setting default server
+            _defaultVirtualServers[pairHostToPort] =
+                &_virtualServers[pairHostToPort][vserver.getServerName()];
         }
         it++;
     }

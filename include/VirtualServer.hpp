@@ -18,7 +18,6 @@ class VirtualServer
     std::string _serverName;
     std::map<std::string, std::string> _errorsPage;
     int _clientMaxBodySize;
-    std::map<std::string, Location> _locations;
 
     std::set<std::string> _refAllowedErrorCode;
     std::set<std::string> _refAllowedServerDirective;
@@ -41,6 +40,7 @@ class VirtualServer
 
     // gets
     std::string getServerName(void) const;
+	std::string getErrorPage(std::string errorCode) const;
     uint32_t getHost(void) const;
     uint16_t getPort(void) const;
     int getBodySize(void) const;
@@ -50,6 +50,7 @@ class VirtualServer
     void validateErrorCode(std::string& code);
     void validateDirective(const std::string& directive);
     void initReferences();
+    std::map<std::string, Location> _locations;
 };
 
 #endif // _VSERVER_HPP_

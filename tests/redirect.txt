@@ -1,0 +1,4 @@
+verbose
+url = localhost:8080/
+request = GET
+header = "Host: aoba"

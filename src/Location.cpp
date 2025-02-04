@@ -4,6 +4,7 @@ Location::Location(void)
 {
     _logger.log(DEBUG, "New Location created");
     initReferences();
+    _index = "index.html";
     _resource = "";
     _root = "";
     _autoIndex = false;
@@ -17,9 +18,9 @@ void Location::initReferences()
     _refAllowedLocationDirective.insert("root");
     _refAllowedLocationDirective.insert("redirect");
     _refAllowedLocationDirective.insert("autoindex");
-    _refAllowedLocationDirective.insert("default_file");
     _refAllowedLocationDirective.insert("allowed_methods");
     _refAllowedLocationDirective.insert("cgi");
+    _refAllowedLocationDirective.insert("index");
 
     // methods
     _refAllowedMethods.insert("GET");
@@ -94,6 +95,8 @@ void Location::setAllowedMethods(std::stringstream& serverBlock)
     }
 }
 
+void Location::setIndex(std::string& file) { _index = file; }
+
 void Location::setRoot(std::string& path) { _root = path; }
 
 void Location::setAutoIndex(bool value) { _autoIndex = value; }
@@ -108,6 +111,35 @@ std::string Location::getResource(void) const { return _resource; }
 std::string Location::getRoot(void) const { return _root; }
 
 std::string Location::getRedirect(void) const { return _redirect; }
+
+std::string Location::getIndex(void) const { return _index; }
+
+std::string Location::getAllowedMethods(void) const
+{
+    std::string list;
+    std::set<std::string>::iterator it = _allowedMethods.begin();
+    std::set<std::string>::iterator ite = _allowedMethods.end();
+
+    if (_allowedMethods.empty() == true)
+    {
+        return list;
+    }
+
+    if (_allowedMethods.size() == 1)
+    {
+        list = *it;
+        return list;
+    }
+
+    list = *it;
+    ++it;
+    while (it != ite)
+    {
+        list += ", " + *it;
+        ++it;
+    }
+    return list;
+}
 
 // verifiers
 bool Location::isCGI(void) const { return _cgi; }
