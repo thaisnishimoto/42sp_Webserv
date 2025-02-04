@@ -1,0 +1,4 @@
+verbose
+url = localhost:8085/forbidden_folder/
+request = GET
+header = "Host: aoba"

@@ -414,6 +414,24 @@ void WebServer::fillResponse(Connection& connection)
 		}
 
 		//resource not allowed - 403
+		if (request.isDir == true &&
+			access(request.localPathname.c_str(), X_OK) != 0)
+		{
+			std::string msg = "WebServ does not have access rights for " + request.localPathname + " directory.";
+			_logger.log(DEBUG, msg);
+			response.statusCode = "403";
+			response.reasonPhrase = "Forbidden";
+			return;
+		}
+		if (request.isDir == false &&
+			access(request.localPathname.c_str(), R_OK) != 0)
+		{
+			std::string msg = "WebServ does not have access rights for " + request.localPathname + ".";
+			_logger.log(DEBUG, msg);
+			response.statusCode = "403";
+			response.reasonPhrase = "Forbidden";
+			return;
+		}
 
 		if (request.method == "GET")
 		{
@@ -472,7 +490,7 @@ void WebServer::identifyVirtualServer(Connection& connection)
     if (it == vServersFromHostPort.end())
     {
         // set default
-		_logger.log(DEBUG, "Could not match virtualServer by name, using default.");
+		_logger.log(INFO, "Could not match virtualServer by name, using default.");
         connection.virtualServer = _virtualServersDefault[key];
         return;
     }
@@ -1068,18 +1086,6 @@ void WebServer::handleGET(Connection& connection)
 	}
 
 	std::string localFileName = "." + location.getRoot() + request.target;
-
-	//check reading rights
-	if (access(localFileName.c_str(), R_OK) != 0)
-	{
-		std::string msg = "WebServ does not have reading rights for " + localFileName + ".";
-		_logger.log(DEBUG, msg);
-		response.statusCode = "403";
-		response.reasonPhrase = "Forbidden";
-		//add content of specific file to body
-		//add proper content-length
-		return;
-	}
 
 	//open file
 	std::ifstream file(localFileName.c_str());
