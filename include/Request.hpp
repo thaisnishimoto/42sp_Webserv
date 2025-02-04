@@ -31,17 +31,6 @@ class Request
 
     Request(void);
 
-    // public:
-    //     static void initStaticMethods(void);
-    //    void	parseRequest(std::string& buffer);
-    // void	parseHeader(std::string& buffer);
-    // std::string captureFieldName(std::string& fieldLine);
-    // std::string captureFieldValues(std::string& fieldLine);
-    // void	validateHeader(void);
-    // bool	validateContentLength(void);
-    // bool	validateHost(void);
-    // bool	findExtraRN(void);
-    // std::string removeCRLF(std::string& fieldValue);
 };
 
 #endif

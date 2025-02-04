@@ -9,6 +9,9 @@
 #include <fstream> //ifstream
 
 static bool validateTransferEncoding(Request& request);
+static void fillLocationName(Request& request);
+static Location& getLocation(VirtualServer* vServer,
+							 std::string locationName);
 
 WebServer::WebServer(const std::string& configFile)
     : _config(configFile), _logger(DEBUG2)
@@ -78,7 +81,7 @@ void WebServer::addSocketsToEpoll(void)
 			_logger.log(ERROR, "Could not add fd to epoll instance");
             throw std::exception();
         }
-		std::string msg = "Added " + itoa(sockFd) + " to epoll instance";
+		std::string msg = "Added fd " + itoa(sockFd) + " to epoll instance";
 		_logger.log(DEBUG, msg);
 
         ++it;
@@ -335,13 +338,33 @@ void WebServer::fillResponse(Connection& connection)
         response.statusCode = "413";
         response.reasonPhrase = "Content Too Large";
     }
+	//elseif not implemented methods
     else
     {
         identifyVirtualServer(connection);
 		fillLocationName(request);
 
+		Location& location = getLocation(connection.virtualServer,
+								   request.locationName);
+
+		if (location.isAllowedMethod(request.method) == false)
+		{
+			response.statusCode = "405";
+			response.reasonPhrase = "Method Not Allowed";
+			response.headerFields["Allow"] = location.getAllowedMethods(); 
+			return;
+		}
+		
+
+
 		//TODO
 		//handle redirects here
+
+		//allowed method
+
+		//resource found
+
+		//
 
 		if (request.method == "GET")
 		{

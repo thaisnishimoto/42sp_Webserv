@@ -37,6 +37,7 @@ class Location
     std::string getResource(void) const;
     std::string getRoot(void) const;
     std::string getRedirect(void) const;
+	std::string getAllowedMethods(void) const;
 
     // verifiers
     bool isCGI(void) const;

@@ -109,6 +109,33 @@ std::string Location::getRoot(void) const { return _root; }
 
 std::string Location::getRedirect(void) const { return _redirect; }
 
+std::string Location::getAllowedMethods(void) const
+{
+	std::string list;
+	std::set<std::string>::iterator it = _allowedMethods.begin();
+	std::set<std::string>::iterator ite = _allowedMethods.end();
+
+	if (_allowedMethods.empty() == true)
+	{
+		return list;
+	}
+
+	if (_allowedMethods.size() == 1)
+	{
+		list = *it;
+		return list;
+	}
+	
+	list = *it;
+	++it;
+	while (it != ite)
+	{
+		list += ", " + *it;
+		++it;
+	}
+	return list;
+}
+
 // verifiers
 bool Location::isCGI(void) const { return _cgi; }
 
