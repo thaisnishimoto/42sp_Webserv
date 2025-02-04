@@ -333,7 +333,6 @@ static void fillLocalPathname(Request& request, Location& location)
 	{
 		request.localPathname = "." + location.getRoot();
 		request.localPathname += request.target;
-		//TODO
 		request.localPathname += location.getIndex();
 		request.isDir = false;
 		return;
@@ -377,12 +376,23 @@ void WebServer::fillResponse(Connection& connection)
 
 		Location& location = getLocation(connection.virtualServer,
 								   request.locationName);
+		if (location.getRedirect().empty() == false)
+		{
+			std::string msg = "Location redirects to ";
+			msg += location.getRedirect();
+			_logger.log(DEBUG, msg);
+
+			response.statusCode = "301";
+			response.reasonPhrase = "Moved Permanently";
+			response.headerFields["location"] = location.getRedirect(); 
+			return;
+		}
 
 		if (location.isAllowedMethod(request.method) == false)
 		{
 			response.statusCode = "405";
 			response.reasonPhrase = "Method Not Allowed";
-			response.headerFields["Allow"] = location.getAllowedMethods(); 
+			response.headerFields["allow"] = location.getAllowedMethods(); 
 			return;
 		}
 
