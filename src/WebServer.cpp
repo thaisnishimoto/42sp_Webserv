@@ -1096,13 +1096,11 @@ void WebServer::handleGET(Connection& connection)
 		}
 	}
 
-	std::string localFileName = "." + location.getRoot() + request.target;
-
 	//open file
-	std::ifstream file(localFileName.c_str());
+	std::ifstream file(request.localPathname.c_str());
 	if (file.is_open() == false)
 	{
-		std::string msg = "WebServ could not open" + localFileName + "for some reason.";
+		std::string msg = "WebServ could not open" + request.localPathname + "for some reason.";
 		_logger.log(DEBUG, msg);
 		response.statusCode = "500";
 		response.reasonPhrase = "Internal Server Error";
@@ -1110,7 +1108,7 @@ void WebServer::handleGET(Connection& connection)
 		return;
 	}
 
-	std::string msg = "Opened " + localFileName;
+	std::string msg = "Opened " + request.localPathname;
 	_logger.log(DEBUG, msg);
 
 	//read content of file using special std::string constructor
@@ -1120,7 +1118,7 @@ void WebServer::handleGET(Connection& connection)
 
 	file.close();
 
-	msg = "Filling response object with data from " + localFileName;
+	msg = "Filling response object with data from " + request.localPathname;
 	_logger.log(DEBUG, msg);
 	response.body = fileContent;
 	response.headerFields["content-length"] = itoa(static_cast<int>(fileContent.length()));
