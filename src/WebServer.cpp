@@ -14,6 +14,7 @@ static void fillLocationName(Request& request);
 static void fillLocalPathname(Request& request, Location& location);
 static Location& getLocation(VirtualServer* vServer,
 							 std::string locationName);
+static std::string baseDirectoryListing(void);
 
 WebServer::WebServer(const std::string& configFile)
     : _config(configFile), _logger(DEBUG2)
@@ -413,7 +414,7 @@ void WebServer::fillResponse(Connection& connection)
 			return;
 		}
 
-		//resource not allowed - 403
+		//403
 		if (request.isDir == true &&
 			access(request.localPathname.c_str(), X_OK) != 0)
 		{
@@ -1057,32 +1058,42 @@ void WebServer::handleGET(Connection& connection)
 	Response& response = connection.response;
 	Location& location = getLocation(connection.virtualServer, request.locationName);
 
-	if (isTargetDir(request) == true)
+	if (request.isDir == true)
 	{
 		_logger.log(DEBUG, "Target resource is a directory");
 		if (location.isAutoIndex() == true)
 		{
 			//build directorylisting
-			//early return
-			std::string localDirName = "." + location.getRoot() + request.target;
-			std::string msg = "Opening " + localDirName + " directory.";
+			std::string msg = "Directory listing if on";
 			_logger.log(DEBUG, msg);
-			DIR* dir = opendir(localDirName.c_str());
 
+			std::string dirList = baseDirectoryListing();
+			dirList += "<h1> Contents of " + request.target;
+			dirList += "</h1>\n<ul>\n";
+
+			std::string localDirName = "." + location.getRoot() + request.target;
+			DIR* dir = opendir(localDirName.c_str());
 			struct dirent* dirContent = readdir(dir);
 			while (dirContent != NULL)
 			{
-				std::cout << dirContent->d_name << std::endl;
+				dirList += "<li>";
+				dirList += dirContent->d_name;
+				if (dirContent->d_type == DT_DIR)
+				{
+					dirList += "/";
+				}
+				dirList += "</li>\n";
 				dirContent = readdir(dir);
 			}
+			dirList += "</ul>\n</body>\n</html>";
 
 			closedir(dir);
+			response.statusCode = "200";
+			response.reasonPhrase = "OK";
+			response.headerFields["content-length"] = itoa(static_cast<int>(dirList.size()));
+			response.body = dirList;
 			return;
 		}
-
-		//TODO - base on location index file name
-		// _logger.log(DEBUG, "Appending location index file name to target resource");
-		// request.target += "index.html";
 	}
 
 	std::string localFileName = "." + location.getRoot() + request.target;
@@ -1115,4 +1126,19 @@ void WebServer::handleGET(Connection& connection)
 	response.headerFields["content-length"] = itoa(static_cast<int>(fileContent.length()));
 	response.statusCode = "200";
 	response.reasonPhrase = "OK";
+}
+
+static std::string baseDirectoryListing(void)
+{
+	std::string content;
+	content = "<!DOCTYPE html>\n";
+	content+="<html lang=\"en\">\n";
+	content+="<head>\n";
+	content+="<meta charset=\"UTF-8\">\n";
+	content+="<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n";
+	content+="<title>Unordered List Example</title>\n";
+	content+="</head>\n";
+	content+="<body>\n";
+
+	return content;
 }
