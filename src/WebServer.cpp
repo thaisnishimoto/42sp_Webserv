@@ -10,7 +10,7 @@
 
 static bool validateTransferEncoding(Request& request);
 static bool isTargetDir(Request& request);
-static void fillLocationName(Request& request);
+static void fillLocationName(Connection& connection);
 static void fillLocalPathname(Request& request, Location& location);
 static Location& getLocation(VirtualServer* vServer,
 							 std::string locationName);
@@ -307,11 +307,19 @@ void WebServer::modifyEventInterest(int epollFd, int eventFd, uint32_t event)
     epoll_ctl(epollFd, EPOLL_CTL_MOD, eventFd, &target_event);
 }
 
-static void fillLocationName(Request& request)
+static void fillLocationName(Connection& connection)
 {
-	std::string& target = request.target;
-	size_t lastSlashPos = target.rfind("/");
+	Request& request = connection.request;
+	VirtualServer* vServer = connection.virtualServer;
 
+	std::string& target = request.target;
+	if (vServer->_locations.find(target) != vServer->_locations.end())
+	{
+		request.locationName = vServer->_locations.find(target)->first;
+		return;
+	}
+
+	size_t lastSlashPos = target.rfind("/");
 	if (lastSlashPos != 0)
 	{
 		request.locationName = target.substr(0, lastSlashPos);
@@ -372,7 +380,7 @@ void WebServer::fillResponse(Connection& connection)
 		//TODO
 		//handle redirects here
         identifyVirtualServer(connection);
-		fillLocationName(request);
+		fillLocationName(connection);
 
 		Location& location = getLocation(connection.virtualServer,
 								   request.locationName);
