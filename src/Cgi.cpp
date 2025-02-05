@@ -1,11 +1,9 @@
 #include "WebServer.hpp"
 #include "Logger.hpp"
 
-Cgi::Cgi(Connection& connection, Location& location)
+Cgi::Cgi(Connection& connection)
 {
-    //After merging
-    //_scriptPath = connection.request.localPathName; 
-    _scriptPath = "." + location.getRoot() + connection.request.target; 
+    _scriptPath = connection.request.localPathname; 
     std::cout << "Script path: " << _scriptPath << std::endl;
 }
 

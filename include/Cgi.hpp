@@ -9,7 +9,7 @@
 class Cgi
 {
   public:
-    Cgi(Connection& connection, Location& location);
+    Cgi(Connection& connection);
     void execute(void);
     // Response& getHTTPResponse(void); 
     std::string getScriptPath(void) {return _scriptPath;}
