@@ -1191,4 +1191,18 @@ void WebServer::handlePOST(Connection& connection)
 		return;
 	}
 
+	std::map<std::string, std::string>::iterator it =
+		request.headerFields.find("content-type");
+	std::string headerValue = it->second;
+	std::string contentType = headerValue.substr(0, headerValue.find(";"));
+	if (contentType != "multipart/form-data")
+	{
+		_logger.log(DEBUG, "content-type header in POST request is not accepted");
+		response.statusCode = "415";
+		response.reasonPhrase = "Unsupported Media Type";
+		response.headerFields["accept-post"] = "multipart/form-data";
+		response.headerFields["content-length"] = "0";
+		return;
+	}
+
 }
