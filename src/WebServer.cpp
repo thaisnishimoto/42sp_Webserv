@@ -1205,4 +1205,10 @@ void WebServer::handlePOST(Connection& connection)
 		return;
 	}
 
+	std::string delim = headerValue.substr(headerValue.find("=") + 1,
+										headerValue.find("\r\n"));
+	std::string msg = "Delimiter is " + delim;
+	_logger.log(DEBUG, msg);
+	return;
+
 }
