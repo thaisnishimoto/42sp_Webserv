@@ -463,41 +463,7 @@ void WebServer::fillResponse(Connection& connection)
 
 		Location& location = getLocation(connection.virtualServer,
 								   request.locationName);
-        // identifyLocation
-        // if (location doesnt exist in virtual server)
-        // {
-        //     response.statusCode = "404";
-        //     response.reasonPhrase = "Not Found";
-        // }
-        if (isCgiRequest(connection, location))
-        {
-            _logger.log(INFO, "Handling CGI Request"); 
-            Cgi cgiHandler(connection, location);
-         	if (access(cgiHandler.getScriptPath().c_str(), X_OK) != 0)
-    		{
-        		std::string msg = "CGI script it not executable: " + cgiHandler.getScriptPath();
-                _logger.log(DEBUG, msg);
-                response.statusCode = "403";
-                response.reasonPhrase = "Forbidden";
-                return;
-            }
-            cgiHandler.execute();
-            response.statusCode = "200";
-            response.reasonPhrase = "OK";
-            std::pair<std::string, std::string> pair(
-                "origin", connection.virtualServer->getServerName());
-            response.headerFields.insert(pair);
-            response.body = request.body;
-        }
-        else
-        {
-            response.statusCode = "200";
-            response.reasonPhrase = "OK";
-            std::pair<std::string, std::string> pair(
-                "origin", connection.virtualServer->getServerName());
-            response.headerFields.insert(pair);
-            response.body = request.body;
-        }
+
 		if (location.getRedirect().empty() == false)
 		{
 			std::string msg = "Location redirects to ";
@@ -581,6 +547,27 @@ void WebServer::fillResponse(Connection& connection)
 		}
 
 		fillConnectionHeader(connection);
+
+        if (isCgiRequest(connection, location))
+        {
+            _logger.log(INFO, "Handling CGI Request"); 
+            Cgi cgiHandler(connection);
+         	if (access(cgiHandler.getScriptPath().c_str(), X_OK) != 0)
+    		{
+        		std::string msg = "CGI script it not executable: " + cgiHandler.getScriptPath();
+                _logger.log(DEBUG, msg);
+                response.statusCode = "403";
+                response.reasonPhrase = "Forbidden";
+                return;
+            }
+            cgiHandler.execute();
+            response.statusCode = "200";
+            response.reasonPhrase = "OK";
+            std::pair<std::string, std::string> pair(
+                "origin", connection.virtualServer->getServerName());
+            response.headerFields.insert(pair);
+            response.body = request.body;
+        }
 
 		if (request.method == "GET")
 		{
