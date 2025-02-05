@@ -76,9 +76,9 @@ class WebServer
     void identifyVirtualServer(Connection& connection);
     std::string captureFieldName(std::string& fieldLine);
     std::string captureFieldValues(std::string& fieldLine);
-    void validateHeader(Request& request);
+    void validateHeader(Connection& connection);
 
-    void parseBody(std::string& connectionBuffer, Request& request);
+	void parseBody(Connection& connection);
 
     void buildResponseBuffer(Connection& connection);
     void fillResponse(Connection& connection);

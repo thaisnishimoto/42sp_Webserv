@@ -377,9 +377,8 @@ void WebServer::fillResponse(Connection& connection)
 	}
     else
     {
-		//TODO
-		//handle redirects here
-        identifyVirtualServer(connection);
+		//identification of virtualServer now occurs in validate header
+        // identifyVirtualServer(connection);
 		fillLocationName(connection);
 
 		Location& location = getLocation(connection.virtualServer,
@@ -541,7 +540,7 @@ void WebServer::parseRequest(Connection& connection)
     if (request.parsedHeader == true && request.continueParsing == true &&
         request.validatedHeader == false)
     {
-        validateHeader(request);
+        validateHeader(connection);
     }
     if (request.parsedHeader == true)
     {
@@ -560,15 +559,19 @@ void WebServer::parseRequest(Connection& connection)
     }
     if (request.validatedHeader == true)
     {
-        parseBody(connection.buffer, request);
+        parseBody(connection);
     }
 }
 
-void WebServer::parseBody(std::string& connectionBuffer, Request& request)
+void WebServer::parseBody(Connection& connection)
 {
+	std::string& connectionBuffer = connection.buffer;
+	Request& request = connection.request;
+
     if (request.isChunked == true &&
         connectionBuffer.find("0\r\n\r\n") != std::string::npos)
     {
+		size_t maxBodySize = connection.virtualServer->getBodySize() * 1024;
         while (true)
         {
             std::string hexSize = getNextLineRN(connectionBuffer);
@@ -587,7 +590,7 @@ void WebServer::parseBody(std::string& connectionBuffer, Request& request)
             if (iss >> std::hex >> decSize && iss.eof() != false)
             {
                 request.contentLength += static_cast<size_t>(decSize);
-                if (request.contentLength > CLIENT_MAX_BODY_SIZE)
+                if (request.contentLength > maxBodySize)
                 {
                     _logger.log(DEBUG, "Request body too large");
                     request.bodyTooLarge = true;
@@ -916,15 +919,17 @@ static bool hasCLAndTEHeaders(Request& request)
     return result;
 }
 
-static bool validateContentLengthSize(Request& request)
+static bool validateContentLengthSize(Connection& connection)
 {
+	Request& request = connection.request;
     if (request.headerFields.count("content-length") == 0)
     {
         return true;
     }
     else
     {
-        if (request.contentLength > CLIENT_MAX_BODY_SIZE)
+		size_t maxBodySize = connection.virtualServer->getBodySize() * 1024;
+        if (request.contentLength > maxBodySize)
         {
             return false;
         }
@@ -935,8 +940,10 @@ static bool validateContentLengthSize(Request& request)
     }
 }
 
-void WebServer::validateHeader(Request& request)
+void WebServer::validateHeader(Connection& connection)
 {
+	Request& request = connection.request;
+
     if (validateContentLength(request) == false)
     {
         request.badRequest = true;
@@ -967,7 +974,8 @@ void WebServer::validateHeader(Request& request)
         request.continueParsing = false;
         return;
     }
-    if (validateContentLengthSize(request) == false)
+	identifyVirtualServer(connection);
+    if (validateContentLengthSize(connection) == false)
     {
         _logger.log(DEBUG, "Request body too large");
         request.bodyTooLarge = true;

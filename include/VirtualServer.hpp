@@ -43,7 +43,7 @@ class VirtualServer
 	std::string getErrorPage(std::string errorCode) const;
     uint32_t getHost(void) const;
     uint16_t getPort(void) const;
-    int getBodySize(void) const;
+    size_t getBodySize(void) const;
     Location* getLocation(std::string resource);
 
     // other
