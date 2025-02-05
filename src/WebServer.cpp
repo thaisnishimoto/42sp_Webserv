@@ -462,6 +462,7 @@ void WebServer::fillResponse(Connection& connection)
 		else if (request.method == "POST")
 		{
 			//TODO
+			handlePOST(connection);
 		}
 		else if (request.method == "DELETE")
 		{
@@ -1171,4 +1172,23 @@ static std::string baseDirectoryListing(void)
 	content+="<body>\n";
 
 	return content;
+}
+
+void WebServer::handlePOST(Connection& connection)
+{
+	Request& request = connection.request;
+	Response& response = connection.response;
+	// Location& location = getLocation(connection.virtualServer, request.locationName);
+
+	//415
+	if (request.headerFields.count("content-type") == 0)
+	{
+		_logger.log(DEBUG, "No content-type header in POST request");
+		response.statusCode = "415";
+		response.reasonPhrase = "Unsupported Media Type";
+		response.headerFields["accept-post"] = "multipart/form-data";
+		response.headerFields["content-length"] = "0";
+		return;
+	}
+
 }
