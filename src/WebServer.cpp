@@ -1209,6 +1209,33 @@ void WebServer::handlePOST(Connection& connection)
 										headerValue.find("\r\n"));
 	std::string msg = "Delimiter is " + delim;
 	_logger.log(DEBUG, msg);
-	return;
+
+	//capture body
+	std::stringstream bodyStream(request.body);
+	std::string firstLine;
+	std::getline(bodyStream, firstLine);
+	if (firstLine == "--" + delim + "\r")
+	{
+		_logger.log(DEBUG, "Body first line matches with delim");
+		std::string secondLine;
+		std::getline(bodyStream, secondLine);
+		std::string fileName = secondLine.substr(secondLine.find("filename=") + 10);
+		fileName = fileName.substr(0, fileName.find("\"\r"));
+
+		//tentar criar arquivo
+		std::string localFileName = request.localPathname + "/" + fileName;
+		if (access(localFileName.c_str(), F_OK) == 0)
+		{
+			response.statusCode = "409";
+			response.reasonPhrase = "Conflict";
+			response.body = "File already exists in webserv filesystem";
+			response.headerFields["content-length"] = itoa(static_cast<int>(response.body.length()));
+			return;
+		}
+
+		//pular duas linhas (content-type e \r\n)
+		std::getline(bodyStream, secondLine);
+		std::getline(bodyStream, secondLine);
+	}
 
 }
