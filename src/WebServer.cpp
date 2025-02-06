@@ -1248,13 +1248,38 @@ void WebServer::handlePOST(Connection& connection)
 			response.headerFields["content-length"] = itoa(static_cast<int>(response.body.length()));
 			return;
 		}
-
-		//pular duas linhas (content-type e \r\n)
-		std::getline(bodyStream, secondLine);
-		std::getline(bodyStream, secondLine);
-
+		
+		//adiantando body para conteudo
+		std::string content;
+		content = request.body.substr(request.body.find("\r\n\r\n") + 4);
 		//agora precisamos ler o body até achar o delimitador
+		std::string closeDelim = "\r\n--" + delim + "--";
+		size_t closeDelimPos = content.find(closeDelim);
+		if (closeDelimPos == std::string::npos)
+		{
+			response.statusCode = "400";
+			response.reasonPhrase = "Bad Request";
+			return;
+		}
+		content = content.substr(0, closeDelimPos);
 
+		std::ofstream out(localFileName.c_str());
+		if (out.is_open() == false)
+		{
+			response.statusCode = "500";
+			response.reasonPhrase = "Internal Server Error";
+			return;
+		}
+
+		out << content;
+		out.close();
+
+		response.statusCode = "201";
+		response.reasonPhrase = "Created";
+		response.body = "File uploaded correctly.";
+		response.headerFields["content-length"] = itoa(static_cast<int>(response.body.length()));
+		response.headerFields["location"] = request.locationName + "/" + fileName;
+		return;
 
 	}
 
