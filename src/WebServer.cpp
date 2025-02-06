@@ -368,6 +368,7 @@ void WebServer::fillResponse(Connection& connection)
     {
         response.statusCode = "413";
         response.reasonPhrase = "Content Too Large";
+		response.headerFields["content-length"] = "0";
     }
 	else if (_unimplementedMethods.find(request.method)
 		!= _unimplementedMethods.end())
@@ -920,6 +921,15 @@ static bool hasCLAndTEHeaders(Request& request)
     return result;
 }
 
+static bool validateContentLengthMaxSize(Request& request)
+{
+	if (request.contentLength > MAX_BODY_SIZE)
+	{
+		return false;
+	}
+	return true;
+}
+
 static bool validateContentLengthSize(Connection& connection)
 {
 	Request& request = connection.request;
@@ -976,11 +986,17 @@ void WebServer::validateHeader(Connection& connection)
         return;
     }
 	identifyVirtualServer(connection);
-    if (validateContentLengthSize(connection) == false)
+    if (validateContentLengthMaxSize(request) == false)
     {
-        _logger.log(DEBUG, "Request body too large");
+        _logger.log(DEBUG, "Content-Length greater than global limit. Webserv will not read body.");
         request.bodyTooLarge = true;
         request.continueParsing = false;
+		return;
+    }
+    if (validateContentLengthSize(connection) == false)
+    {
+        _logger.log(DEBUG, "Request body too large. Webserver will read and discard body");
+        request.bodyTooLarge = true;
     }
     request.validatedHeader = true;
 }
@@ -1236,6 +1252,10 @@ void WebServer::handlePOST(Connection& connection)
 		//pular duas linhas (content-type e \r\n)
 		std::getline(bodyStream, secondLine);
 		std::getline(bodyStream, secondLine);
+
+		//agora precisamos ler o body até achar o delimitador
+
+
 	}
 
 }

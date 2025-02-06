@@ -3,6 +3,8 @@
 
 #define MAX_EVENTS 10
 #define TIMEOUT 60
+//4MB
+#define MAX_BODY_SIZE 4000000
 
 #include "Config.hpp"
 #include "Connection.hpp"
