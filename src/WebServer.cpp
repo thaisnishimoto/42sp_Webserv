@@ -1237,11 +1237,13 @@ void WebServer::handlePOST(Connection& connection)
 		std::getline(bodyStream, secondLine);
 		std::string fileName = secondLine.substr(secondLine.find("filename=") + 10);
 		fileName = fileName.substr(0, fileName.find("\"\r"));
+		_logger.log(DEBUG, "Captured filename.");
 
-		//tentar criar arquivo
+		//try and create file
 		std::string localFileName = request.localPathname + "/" + fileName;
 		if (access(localFileName.c_str(), F_OK) == 0)
 		{
+			_logger.log(DEBUG, "A file with the same name already exists in webserv filesystem");
 			response.statusCode = "409";
 			response.reasonPhrase = "Conflict";
 			response.body = "File already exists in webserv filesystem";
@@ -1249,11 +1251,13 @@ void WebServer::handlePOST(Connection& connection)
 			return;
 		}
 		
-		//adiantando body para conteudo
+		//substring to capture begining of content
 		std::string content;
 		content = request.body.substr(request.body.find("\r\n\r\n") + 4);
-		//agora precisamos ler o body até achar o delimitador
-		std::string closeDelim = "\r\n--" + delim + "--";
+		//read body until next boundary, effectively ignoring multiple fields forms
+
+		// std::string closeDelim = "\r\n--" + delim + "--";
+		std::string closeDelim = "\r\n--" + delim;
 		size_t closeDelimPos = content.find(closeDelim);
 		if (closeDelimPos == std::string::npos)
 		{
@@ -1273,6 +1277,7 @@ void WebServer::handlePOST(Connection& connection)
 
 		out << content;
 		out.close();
+		_logger.log(DEBUG, "File sucessfully uploaded");
 
 		response.statusCode = "201";
 		response.reasonPhrase = "Created";
@@ -1280,7 +1285,5 @@ void WebServer::handlePOST(Connection& connection)
 		response.headerFields["content-length"] = itoa(static_cast<int>(response.body.length()));
 		response.headerFields["location"] = request.locationName + "/" + fileName;
 		return;
-
 	}
-
 }
