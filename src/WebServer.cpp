@@ -1286,4 +1286,8 @@ void WebServer::handlePOST(Connection& connection)
 		response.headerFields["location"] = request.locationName + "/" + fileName;
 		return;
 	}
+
+	response.statusCode = "400";
+	response.reasonPhrase = "Bad Request";
+	return;
 }
