@@ -1,10 +1,9 @@
+#include "Cgi.hpp"
 #include "WebServer.hpp"
-#include "Logger.hpp"
 
-Cgi::Cgi(Connection& connection)
+Cgi::Cgi(Connection& connection) : _connection(connection)
 {
     _scriptPath = connection.request.localPathname; 
-    std::cout << "Script path: " << _scriptPath << std::endl;
 }
 
 void Cgi::execute(void)
@@ -25,6 +24,7 @@ void Cgi::execute(void)
     
     if (pid == 0)
     {
+        setEnvVars();
         //if POST, read body from pipe[0]
         close(pipeFd[0]);
 
@@ -58,6 +58,33 @@ void Cgi::execute(void)
 
     close(pipeFd[0]);
 }
+
+void Cgi::setEnvVars(void)
+{
+    Request& request = _connection.request;
+    VirtualServer& virtualServer = *_connection.virtualServer;
+
+    _envVars.push_back("SERVER_NAME=" + virtualServer.getServerName());
+    _envVars.push_back("SERVER_PORT=" + virtualServer.getPort());
+    _envVars.push_back("SERVER_PROTOCOL=HTTP/1.1");
+    _envVars.push_back("SCRIPT_NAME=" + _scriptPath);
+    _envVars.push_back("REQUEST_METHOD=" + request.method);
+    _envVars.push_back("PATH_INFO=" + request.localPathname);
+    if (!request.queryString.empty())
+    {
+        _envVars.push_back("QUERY_STRING=" + request.queryString);
+    }
+    if (request.method == "POST")
+    {
+        _envVars.push_back("CONTENT_LENGTH=" + itoa(request.body.size()));
+        std::string contentType = request.getHeader("content-type");
+        if (!contentType.empty())
+            _envVars.push_back("CONTENT_TYPE=" + contentType); 
+        else
+            _envVars.push_back("CONTENT_TYPE=application/octet-stream"); 
+    }
+}
+
 void WebServer::parseQueryString(std::string& requestTarget, Request& request)
 {
     size_t pos = requestTarget.find('?');

@@ -13,12 +13,14 @@ class Cgi
     void execute(void);
     // Response& getHTTPResponse(void); 
     std::string getScriptPath(void) {return _scriptPath;}
+    void setEnvVars(void);
 
   private:
+    Connection& _connection;
     std::string _scriptPath;
+    std::vector<std::string> _envVars;
     // std::string _rawOutput;
     // std::vector<char *> _envp;
-    // void _setEnvironmentVariables(Connection& connection);
 };
 
 #endif
