@@ -34,6 +34,7 @@ class Request
     bool isChunked;
 
     Request(void);
+    std::string getHeader(std::string fieldName);
 
 };
 
