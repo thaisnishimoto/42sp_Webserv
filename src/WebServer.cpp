@@ -16,6 +16,8 @@ static Location& getLocation(VirtualServer* vServer,
 							 std::string locationName);
 static std::string baseDirectoryListing(void);
 
+bool WebServer::_running = true;
+
 WebServer::WebServer(const std::string& configFile)
     : _config(configFile), _logger(DEBUG2)
 {
@@ -44,6 +46,21 @@ WebServer::~WebServer(void)
     // {
     // 	close(_epollFd);
     // }
+}
+
+void WebServer::signalHandler(int signum){
+    static Logger logger;
+    if (signum == SIGINT || signum == SIGTERM)
+    {
+        logger.log(INFO, "Received shutdown signal. Initiating graceful shutdown...");
+        // std::cout << "Received shutdown signal. Initiating graceful shutdown." << std::endl;
+        _running = false;
+    }
+    else if (signum == SIGPIPE)
+    {
+        logger.log(DEBUG, "Received SIGPIPE signal - ignoring");
+       // std::cout << "Received SIGPIPE signal - ignoring" << std::endl;
+    }
 }
 
 void WebServer::init(void)
@@ -197,17 +214,26 @@ void WebServer::checkTimeouts(void)
 
 void WebServer::run(void)
 {
+    //set signal handlers
+    signal(SIGINT, signalHandler);
+    signal(SIGTERM, signalHandler);
+    signal(SIGPIPE, signalHandler);
+
     int fdsReady;
     struct epoll_event _eventsList[MAX_EVENTS];
 
     // std::cout << "Main loop initiating..." << std::endl;
     _logger.log(INFO, "webserv ready to receive connections");
-    while (true)
+    while (_running)
     {
         fdsReady = epoll_wait(_epollFd, _eventsList, MAX_EVENTS, 1000);
         if (fdsReady == -1)
         {
             // TODO: deal with EINTR. (when signal is received during wait)
+            if(_running == false)
+            {
+                break;
+            }
             std::cerr << std::strerror(errno) << std::endl;
             throw std::runtime_error("Server Error: could not create socket");
         }
@@ -296,6 +322,34 @@ void WebServer::run(void)
             }
         }
     }
+
+    cleanup();
+}
+
+void WebServer::cleanup(void) {
+    _logger.log(DEBUG, "cleaning up...");
+    std::map<int, Connection>::iterator itConn = _connectionsMap.begin();
+    std::map<int, Connection>::iterator iteConn = _connectionsMap.begin();
+
+    while (itConn != iteConn)
+    {
+        close(itConn->second.connectionFd);
+        itConn++;
+    }
+
+    std::map<int, std::pair<uint32_t, uint16_t> >::iterator itSock = _socketsToPairs.begin();
+    std::map<int, std::pair<uint32_t, uint16_t> >::iterator iteSock = _socketsToPairs.begin();
+
+    while (itSock != iteSock)
+    {
+        close(itSock->first);
+        itSock++;
+    }
+    if (_epollFd > 0)
+    {
+        close(_epollFd);
+    }
+    _logger.log(INFO, "Server shutdown complete");
 }
 
 void WebServer::modifyEventInterest(int epollFd, int eventFd, uint32_t event)
@@ -384,7 +438,7 @@ void WebServer::fillResponse(Connection& connection)
 
 			response.statusCode = "301";
 			response.reasonPhrase = "Moved Permanently";
-			response.headerFields["location"] = location.getRedirect(); 
+			response.headerFields["location"] = location.getRedirect();
 			return;
 		}
 
@@ -392,7 +446,7 @@ void WebServer::fillResponse(Connection& connection)
 		{
 			response.statusCode = "405";
 			response.reasonPhrase = "Method Not Allowed";
-			response.headerFields["allow"] = location.getAllowedMethods(); 
+			response.headerFields["allow"] = location.getAllowedMethods();
 			return;
 		}
 
