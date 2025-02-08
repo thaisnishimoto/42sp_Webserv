@@ -337,7 +337,8 @@ static void fillLocalPathname(Request& request, Location& location)
 		request.isDir = true;
 	}
 
-	if (request.isDir == true && location.isAutoIndex() == false)
+	if (request.isDir == true && location.isAutoIndex() == false &&
+		request.method == "GET")
 	{
 		request.localPathname = "." + location.getRoot();
 		request.localPathname += request.target;
@@ -378,8 +379,6 @@ void WebServer::fillResponse(Connection& connection)
 	}
     else
     {
-		//identification of virtualServer now occurs in validate header
-        // identifyVirtualServer(connection);
 		fillLocationName(connection);
 
 		Location& location = getLocation(connection.virtualServer,
@@ -467,7 +466,7 @@ void WebServer::fillResponse(Connection& connection)
 		}
 		else if (request.method == "DELETE")
 		{
-			//TODO
+			handleDELETE(connection);
 		}
     }
 }
@@ -1290,4 +1289,18 @@ void WebServer::handlePOST(Connection& connection)
 	response.statusCode = "400";
 	response.reasonPhrase = "Bad Request";
 	return;
+}
+
+void WebServer::handleDELETE(Connection& connection)
+{
+	Request& request = connection.request;
+	Response& response = connection.response;
+
+	if (request.isDir == true)
+	{
+			_logger.log(DEBUG, "Webserv does not allow DELETE request to directories");
+			response.statusCode = "403";
+			response.reasonPhrase = "Forbidden";
+			return;
+	}
 }
