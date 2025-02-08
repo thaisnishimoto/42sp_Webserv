@@ -1,0 +1,4 @@
+verbose
+url = localhost:8085/filesDir/
+request = DELETE
+header = "Host: aoba"

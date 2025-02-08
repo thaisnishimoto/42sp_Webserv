@@ -85,6 +85,7 @@ class WebServer
     void fillResponse(Connection& connection);
 	void handleGET(Connection& connection);
 	void handlePOST(Connection& connection);
+	void handleDELETE(Connection& connection);
 
     int consumeNetworkBuffer(int connectionFd, std::string& connectionBuffer);
     void cleanup(void);
