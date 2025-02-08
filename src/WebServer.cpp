@@ -10,7 +10,7 @@
 
 static bool validateTransferEncoding(Request& request);
 static bool isTargetDir(Request& request);
-static void fillLocationName(Request& request);
+static void fillLocationName(Connection& connection);
 static void fillLocalPathname(Request& request, Location& location);
 static Location& getLocation(VirtualServer* vServer,
 							 std::string locationName);
@@ -307,11 +307,19 @@ void WebServer::modifyEventInterest(int epollFd, int eventFd, uint32_t event)
     epoll_ctl(epollFd, EPOLL_CTL_MOD, eventFd, &target_event);
 }
 
-static void fillLocationName(Request& request)
+static void fillLocationName(Connection& connection)
 {
-	std::string& target = request.target;
-	size_t lastSlashPos = target.rfind("/");
+	Request& request = connection.request;
+	VirtualServer* vServer = connection.virtualServer;
 
+	std::string& target = request.target;
+	if (vServer->_locations.find(target) != vServer->_locations.end())
+	{
+		request.locationName = vServer->_locations.find(target)->first;
+		return;
+	}
+
+	size_t lastSlashPos = target.rfind("/");
 	if (lastSlashPos != 0)
 	{
 		request.locationName = target.substr(0, lastSlashPos);
@@ -360,6 +368,7 @@ void WebServer::fillResponse(Connection& connection)
     {
         response.statusCode = "413";
         response.reasonPhrase = "Content Too Large";
+		response.headerFields["content-length"] = "0";
     }
 	else if (_unimplementedMethods.find(request.method)
 		!= _unimplementedMethods.end())
@@ -369,10 +378,9 @@ void WebServer::fillResponse(Connection& connection)
 	}
     else
     {
-		//TODO
-		//handle redirects here
-        identifyVirtualServer(connection);
-		fillLocationName(request);
+		//identification of virtualServer now occurs in validate header
+        // identifyVirtualServer(connection);
+		fillLocationName(connection);
 
 		Location& location = getLocation(connection.virtualServer,
 								   request.locationName);
@@ -455,6 +463,7 @@ void WebServer::fillResponse(Connection& connection)
 		else if (request.method == "POST")
 		{
 			//TODO
+			handlePOST(connection);
 		}
 		else if (request.method == "DELETE")
 		{
@@ -533,7 +542,7 @@ void WebServer::parseRequest(Connection& connection)
     if (request.parsedHeader == true && request.continueParsing == true &&
         request.validatedHeader == false)
     {
-        validateHeader(request);
+        validateHeader(connection);
     }
     if (request.parsedHeader == true)
     {
@@ -552,15 +561,19 @@ void WebServer::parseRequest(Connection& connection)
     }
     if (request.validatedHeader == true)
     {
-        parseBody(connection.buffer, request);
+        parseBody(connection);
     }
 }
 
-void WebServer::parseBody(std::string& connectionBuffer, Request& request)
+void WebServer::parseBody(Connection& connection)
 {
+	std::string& connectionBuffer = connection.buffer;
+	Request& request = connection.request;
+
     if (request.isChunked == true &&
         connectionBuffer.find("0\r\n\r\n") != std::string::npos)
     {
+		size_t maxBodySize = connection.virtualServer->getBodySize() * 1024;
         while (true)
         {
             std::string hexSize = getNextLineRN(connectionBuffer);
@@ -579,7 +592,7 @@ void WebServer::parseBody(std::string& connectionBuffer, Request& request)
             if (iss >> std::hex >> decSize && iss.eof() != false)
             {
                 request.contentLength += static_cast<size_t>(decSize);
-                if (request.contentLength > CLIENT_MAX_BODY_SIZE)
+                if (request.contentLength > maxBodySize)
                 {
                     _logger.log(DEBUG, "Request body too large");
                     request.bodyTooLarge = true;
@@ -908,15 +921,26 @@ static bool hasCLAndTEHeaders(Request& request)
     return result;
 }
 
-static bool validateContentLengthSize(Request& request)
+static bool validateContentLengthMaxSize(Request& request)
 {
+	if (request.contentLength > MAX_BODY_SIZE)
+	{
+		return false;
+	}
+	return true;
+}
+
+static bool validateContentLengthSize(Connection& connection)
+{
+	Request& request = connection.request;
     if (request.headerFields.count("content-length") == 0)
     {
         return true;
     }
     else
     {
-        if (request.contentLength > CLIENT_MAX_BODY_SIZE)
+		size_t maxBodySize = connection.virtualServer->getBodySize() * 1024;
+        if (request.contentLength > maxBodySize)
         {
             return false;
         }
@@ -927,8 +951,10 @@ static bool validateContentLengthSize(Request& request)
     }
 }
 
-void WebServer::validateHeader(Request& request)
+void WebServer::validateHeader(Connection& connection)
 {
+	Request& request = connection.request;
+
     if (validateContentLength(request) == false)
     {
         request.badRequest = true;
@@ -959,11 +985,18 @@ void WebServer::validateHeader(Request& request)
         request.continueParsing = false;
         return;
     }
-    if (validateContentLengthSize(request) == false)
+	identifyVirtualServer(connection);
+    if (validateContentLengthMaxSize(request) == false)
     {
-        _logger.log(DEBUG, "Request body too large");
+        _logger.log(DEBUG, "Content-Length greater than global limit. Webserv will not read body.");
         request.bodyTooLarge = true;
         request.continueParsing = false;
+		return;
+    }
+    if (validateContentLengthSize(connection) == false)
+    {
+        _logger.log(DEBUG, "Request body too large. Webserver will read and discard body");
+        request.bodyTooLarge = true;
     }
     request.validatedHeader = true;
 }
@@ -1155,4 +1188,106 @@ static std::string baseDirectoryListing(void)
 	content+="<body>\n";
 
 	return content;
+}
+
+void WebServer::handlePOST(Connection& connection)
+{
+	Request& request = connection.request;
+	Response& response = connection.response;
+	// Location& location = getLocation(connection.virtualServer, request.locationName);
+
+	//415
+	if (request.headerFields.count("content-type") == 0)
+	{
+		_logger.log(DEBUG, "No content-type header in POST request");
+		response.statusCode = "415";
+		response.reasonPhrase = "Unsupported Media Type";
+		response.headerFields["accept-post"] = "multipart/form-data";
+		response.headerFields["content-length"] = "0";
+		return;
+	}
+
+	std::map<std::string, std::string>::iterator it =
+		request.headerFields.find("content-type");
+	std::string headerValue = it->second;
+	std::string contentType = headerValue.substr(0, headerValue.find(";"));
+	if (contentType != "multipart/form-data")
+	{
+		_logger.log(DEBUG, "content-type header in POST request is not accepted");
+		response.statusCode = "415";
+		response.reasonPhrase = "Unsupported Media Type";
+		response.headerFields["accept-post"] = "multipart/form-data";
+		response.headerFields["content-length"] = "0";
+		return;
+	}
+
+	std::string delim = headerValue.substr(headerValue.find("=") + 1,
+										headerValue.find("\r\n"));
+	std::string msg = "Delimiter is " + delim;
+	_logger.log(DEBUG, msg);
+
+	//capture body
+	std::stringstream bodyStream(request.body);
+	std::string firstLine;
+	std::getline(bodyStream, firstLine);
+	if (firstLine == "--" + delim + "\r")
+	{
+		_logger.log(DEBUG, "Body first line matches with delim");
+		std::string secondLine;
+		std::getline(bodyStream, secondLine);
+		std::string fileName = secondLine.substr(secondLine.find("filename=") + 10);
+		fileName = fileName.substr(0, fileName.find("\"\r"));
+		_logger.log(DEBUG, "Captured filename.");
+
+		//try and create file
+		std::string localFileName = request.localPathname + "/" + fileName;
+		if (access(localFileName.c_str(), F_OK) == 0)
+		{
+			_logger.log(DEBUG, "A file with the same name already exists in webserv filesystem");
+			response.statusCode = "409";
+			response.reasonPhrase = "Conflict";
+			response.body = "File already exists in webserv filesystem";
+			response.headerFields["content-length"] = itoa(static_cast<int>(response.body.length()));
+			return;
+		}
+		
+		//substring to capture begining of content
+		std::string content;
+		content = request.body.substr(request.body.find("\r\n\r\n") + 4);
+		//read body until next boundary, effectively ignoring multiple fields forms
+
+		// std::string closeDelim = "\r\n--" + delim + "--";
+		std::string closeDelim = "\r\n--" + delim;
+		size_t closeDelimPos = content.find(closeDelim);
+		if (closeDelimPos == std::string::npos)
+		{
+			response.statusCode = "400";
+			response.reasonPhrase = "Bad Request";
+			return;
+		}
+		content = content.substr(0, closeDelimPos);
+
+		std::ofstream out(localFileName.c_str());
+		if (out.is_open() == false)
+		{
+			response.statusCode = "500";
+			response.reasonPhrase = "Internal Server Error";
+			return;
+		}
+
+		out << content;
+		out.close();
+		_logger.log(DEBUG, "File sucessfully uploaded");
+
+		response.statusCode = "201";
+		response.reasonPhrase = "Created";
+		response.body = "File uploaded correctly.";
+		response.headerFields["content-length"] = itoa(static_cast<int>(response.body.length()));
+		response.headerFields["location"] = request.locationName + "/" + fileName;
+		return;
+	}
+
+	response.statusCode = "400";
+	response.reasonPhrase = "Bad Request";
+	return;
 }

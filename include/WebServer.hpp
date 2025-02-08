@@ -3,7 +3,8 @@
 
 #define MAX_EVENTS 10
 #define TIMEOUT 60
-#define CLIENT_MAX_BODY_SIZE 1048576
+//4MB
+#define MAX_BODY_SIZE 4000000
 
 #include "Config.hpp"
 #include "Connection.hpp"
@@ -76,13 +77,14 @@ class WebServer
     void identifyVirtualServer(Connection& connection);
     std::string captureFieldName(std::string& fieldLine);
     std::string captureFieldValues(std::string& fieldLine);
-    void validateHeader(Request& request);
+    void validateHeader(Connection& connection);
 
-    void parseBody(std::string& connectionBuffer, Request& request);
+	void parseBody(Connection& connection);
 
     void buildResponseBuffer(Connection& connection);
     void fillResponse(Connection& connection);
 	void handleGET(Connection& connection);
+	void handlePOST(Connection& connection);
 
     int consumeNetworkBuffer(int connectionFd, std::string& connectionBuffer);
 };
