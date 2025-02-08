@@ -14,6 +14,7 @@ class Cgi
     // Response& getHTTPResponse(void); 
     std::string getScriptPath(void) {return _scriptPath;}
     void setEnvVars(void);
+    std::vector<char *> prepareEnvp(void);
 
   private:
     Connection& _connection;

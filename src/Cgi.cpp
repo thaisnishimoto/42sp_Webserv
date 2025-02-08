@@ -24,7 +24,6 @@ void Cgi::execute(void)
     
     if (pid == 0)
     {
-        setEnvVars();
         //if POST, read body from pipe[0]
         close(pipeFd[0]);
 
@@ -32,9 +31,10 @@ void Cgi::execute(void)
         close(pipeFd[1]);
 
         char* const argv[] = {const_cast<char *>("/usr/bin/python3"), const_cast<char *>(_scriptPath.c_str()), NULL};    
-        char* const envp[] = {NULL};
-        
-        execve("/usr/bin/python3", argv, envp);
+        setEnvVars();
+        std::vector<char *> envp = prepareEnvp();
+
+        execve("/usr/bin/python3", argv, envp.data());
         std::cerr << "Execve error" << std::endl;
         exit(EXIT_FAILURE);
     }
@@ -65,7 +65,7 @@ void Cgi::setEnvVars(void)
     VirtualServer& virtualServer = *_connection.virtualServer;
 
     _envVars.push_back("SERVER_NAME=" + virtualServer.getServerName());
-    _envVars.push_back("SERVER_PORT=" + virtualServer.getPort());
+    _envVars.push_back("SERVER_PORT=" + itoa(virtualServer.getPort()));
     _envVars.push_back("SERVER_PROTOCOL=HTTP/1.1");
     _envVars.push_back("SCRIPT_NAME=" + _scriptPath);
     _envVars.push_back("REQUEST_METHOD=" + request.method);
@@ -78,11 +78,25 @@ void Cgi::setEnvVars(void)
     {
         _envVars.push_back("CONTENT_LENGTH=" + itoa(request.body.size()));
         std::string contentType = request.getHeader("content-type");
-        if (!contentType.empty())
-            _envVars.push_back("CONTENT_TYPE=" + contentType); 
-        else
-            _envVars.push_back("CONTENT_TYPE=application/octet-stream"); 
+        if (contentType.empty())
+            contentType = "application/octet-stream";
+        _envVars.push_back("CONTENT_TYPE=" + contentType); 
     }
+}
+
+std::vector<char *> Cgi::prepareEnvp(void)
+{
+    std::vector<char *> envp;
+    
+    std::vector<std::string>::iterator it = _envVars.begin();
+    std::vector<std::string>::iterator ite = _envVars.end();
+    while (it != ite)
+    {
+        envp.push_back(const_cast<char *>(it->c_str())); 
+        ++it;
+    }
+    envp.push_back(NULL); 
+    return envp;
 }
 
 void WebServer::parseQueryString(std::string& requestTarget, Request& request)
