@@ -15,6 +15,7 @@ static void fillLocalPathname(Request& request, Location& location);
 static Location& getLocation(VirtualServer* vServer,
 							 std::string locationName);
 static std::string baseDirectoryListing(void);
+static std::string getDirName(Request& request);
 
 WebServer::WebServer(const std::string& configFile)
     : _config(configFile), _logger(DEBUG2)
@@ -1291,6 +1292,18 @@ void WebServer::handlePOST(Connection& connection)
 	return;
 }
 
+//./content/index.html
+//./content/filesDir/file1
+//substr(0, rfind())...
+
+static std::string getDirName(Request& request)
+{
+	std::string localPathname = request.localPathname;
+	std::string dir;
+	dir = request.localPathname.substr(0, localPathname.rfind("/"));
+	return dir;
+}
+
 void WebServer::handleDELETE(Connection& connection)
 {
 	Request& request = connection.request;
@@ -1302,5 +1315,33 @@ void WebServer::handleDELETE(Connection& connection)
 			response.statusCode = "403";
 			response.reasonPhrase = "Forbidden";
 			return;
+	}
+
+	std::string localDir = getDirName(request);
+
+	if (access(localDir.c_str(), R_OK | W_OK | X_OK) == 0)
+	{
+		if (remove(request.localPathname.c_str()) != 0)
+		{
+			std::string msg = "WebServ could not delete" + request.localPathname + "for some reason.";
+			_logger.log(DEBUG, msg);
+			response.statusCode = "500";
+			response.reasonPhrase = "Internal Server Error";
+			return;
+		}
+
+		std::string msg = "Deleting file " + request.localPathname;
+		_logger.log(DEBUG, msg);
+		response.statusCode = "204";
+		response.reasonPhrase = "No Content";
+		return;
+	}
+	else 
+	{
+
+		_logger.log(DEBUG, "Webserv does not have rights to delete file");
+		response.statusCode = "403";
+		response.reasonPhrase = "Forbidden";
+		return;
 	}
 }
