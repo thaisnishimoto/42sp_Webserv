@@ -20,8 +20,7 @@ class Cgi
     Connection& _connection;
     std::string _scriptPath;
     std::vector<std::string> _envVars;
-    // std::string _rawOutput;
-    // std::vector<char *> _envp;
+    std::string _outputData;
 };
 
 #endif
