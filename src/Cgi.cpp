@@ -35,27 +35,35 @@ void Cgi::execute(void)
         std::vector<char *> envp = prepareEnvp();
 
         execve("/usr/bin/python3", argv, envp.data());
-        std::cerr << "Execve error" << std::endl;
         exit(EXIT_FAILURE);
     }
     //if POST, write body to pipe[1]
     close(pipeFd[1]);
 
     int status;
+    //TODO
+    //Change so server doesnt block here
     waitpid(pid, &status, 0);
-
-    char buff[101];
-    ssize_t bytes = read(pipeFd[0], buff, 100);
-    if (bytes > 0)
+    if (WIFEXITED(status) && WEXITSTATUS(status) != 0)
     {
-        // buff[bytes] = '\0';
-        std::cout << "Script output: " << buff << std::endl;
+        //execve failed
+        std::cerr << "Execve error" << std::endl;
     }
     else
     {
-        std::cerr << "Error reading from pipe" << std::endl;
+        char buffer[1024];
+        ssize_t bytesRead;
+        while ((bytesRead = read(pipeFd[0], buffer, sizeof(buffer))) > 0)
+        {
+            _outputData.append(buffer, bytesRead);
+            std::cout << "cgi output: " << _outputData << std::endl;
+        }
+        if (bytesRead == -1)
+        {
+            //read failed
+            std::cerr << "Execve error" << std::endl;
+        }
     }
-
     close(pipeFd[0]);
 }
 
