@@ -24,7 +24,6 @@
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <vector>
 #include <csignal>
 
 class WebServer
@@ -35,8 +34,6 @@ class WebServer
     static bool _running;
     std::set<uint16_t> _ports;
     std::map<int, std::pair<uint32_t, uint16_t> > _socketsToPairs;
-	//delete line below?
-    std::vector<VirtualServer> _virtualServers;
     std::map<std::pair<uint32_t, uint16_t>,
              std::map<std::string, VirtualServer> >
         _virtualServersLookup;

@@ -329,7 +329,7 @@ void WebServer::run(void)
 void WebServer::cleanup(void) {
     _logger.log(DEBUG, "cleaning up...");
     std::map<int, Connection>::iterator itConn = _connectionsMap.begin();
-    std::map<int, Connection>::iterator iteConn = _connectionsMap.begin();
+    std::map<int, Connection>::iterator iteConn = _connectionsMap.end();
 
     while (itConn != iteConn)
     {
@@ -338,7 +338,7 @@ void WebServer::cleanup(void) {
     }
 
     std::map<int, std::pair<uint32_t, uint16_t> >::iterator itSock = _socketsToPairs.begin();
-    std::map<int, std::pair<uint32_t, uint16_t> >::iterator iteSock = _socketsToPairs.begin();
+    std::map<int, std::pair<uint32_t, uint16_t> >::iterator iteSock = _socketsToPairs.end();
 
     while (itSock != iteSock)
     {
