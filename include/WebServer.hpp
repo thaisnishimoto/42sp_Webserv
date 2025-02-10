@@ -90,6 +90,7 @@ class WebServer
 	void handleDELETE(Connection& connection);
 
     bool isCgiRequest(Connection& connection, Location& location);
+    void buildCgiResponse(Response& response, std::string& cgiOutput);
     int consumeNetworkBuffer(int connectionFd, std::string& connectionBuffer);
     void cleanup(void);
 };

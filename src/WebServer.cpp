@@ -561,15 +561,10 @@ void WebServer::fillResponse(Connection& connection)
                 return;
             }
             cgiHandler.execute();
-            response.statusCode = "200";
-            response.reasonPhrase = "OK";
-            std::pair<std::string, std::string> pair(
-                "origin", connection.virtualServer->getServerName());
-            response.headerFields.insert(pair);
-            response.body = request.body;
+            buildCgiResponse(response, cgiHandler.getOutput());
         }
 
-		if (request.method == "GET")
+		else if (request.method == "GET")
 		{
 			handleGET(connection);
 		}
@@ -607,11 +602,18 @@ void WebServer::buildResponseBuffer(Connection& connection)
 	std::string& buffer = connection.responseBuffer;
 
 	//status line
-	buffer = "HTTP/1.1 ";
-	buffer += response.statusCode;
-	buffer += " ";
-	buffer += response.reasonPhrase;
-	buffer += "\r\n";
+    if (response.statusLine.empty())
+    {
+        buffer = "HTTP/1.1 ";
+        buffer += response.statusCode;
+        buffer += " ";
+        buffer += response.reasonPhrase;
+        buffer += "\r\n";
+    }
+    else
+    {
+        buffer = response.statusLine + "\r\n";
+    }
 
 	//headers
 	std::map<std::string, std::string>::iterator it = response.headerFields.begin();
@@ -830,7 +832,7 @@ void WebServer::parseTarget(std::string& requestLine, Request& request)
     parseQueryString(requestTarget, request);
     request.target = requestTarget;
     _logger.log(DEBUG, "Parsed target: " + requestTarget);
-    requestLine = requestLine.substr(requestTarget.size() + 1, std::string::npos);
+    requestLine = requestLine.substr(requestLine.find(" ") + 1, std::string::npos);
     // std::cout << "Remainder of request line: " << "'" << requestLine << "'"
     // << std::endl;
 }
