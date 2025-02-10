@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personalized Greeting</title>
+</head>
+<body>
+    <h1>Personalized Greeting</h1>
+    <form action="/cgi-bin/greeting.py" method="GET">
+        <label for="name">Enter your name:</label>
+        <input type="text" id="name" name="name" required><br><br>
+
+        <label for="color">Choose a color:</label><br>
+        <input type="radio" id="red" name="color" value="red">
+        <label for="red">Red</label><br>
+        <input type="radio" id="green" name="color" value="green">
+        <label for="green">Green</label><br>
+        <input type="radio" id="blue" name="color" value="blue">
+        <label for="blue">Blue</label><br>
+        <input type="radio" id="yellow" name="color" value="yellow">
+        <label for="yellow">Yellow</label><br>
+        <input type="radio" id="purple" name="color" value="purple">
+        <label for="purple">Purple</label><br><br>
+
+        <input type="submit" value="Submit">
+    </form>
+</body>
+</html>

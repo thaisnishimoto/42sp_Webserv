@@ -55,8 +55,8 @@ void Cgi::execute(void)
         ssize_t bytesRead;
         while ((bytesRead = read(pipeFd[0], buffer, sizeof(buffer))) > 0)
         {
-            _outputData.append(buffer, bytesRead);
-            std::cout << "cgi output: " << _outputData << std::endl;
+            _rawOutputData.append(buffer, bytesRead);
+            std::cout << "cgi output: " << _rawOutputData << std::endl;
         }
         if (bytesRead == -1)
         {
@@ -135,4 +135,59 @@ bool WebServer::isCgiRequest(Connection& connection, Location& location)
             return true;
     }
     return false;
+}
+
+void WebServer::buildCgiResponse(Response& response, std::string& cgiOutput)
+{
+    size_t headerEnd = cgiOutput.find("\n\n");
+    if (headerEnd == std::string::npos)
+    {
+        response.setStatusLine("500", "Internal Server Error");
+        //maybe add body?
+        return;
+    }
+
+    std::string headers = cgiOutput.substr(0, headerEnd);
+    _logger.log(DEBUG, "CGI headers: " + response.body);
+
+    std::istringstream headerStream(headers);
+    std::string line;
+    while (std::getline(headerStream, line))
+    {
+        if (line.find("Status:") == 0)
+            response.statusLine = line.substr(8);
+        else
+        {
+            size_t colonPos = line.find(":");
+            if (colonPos != std::string::npos)
+            {
+                std::string fieldName = line.substr(0, colonPos);
+                tolower(fieldName);
+                fieldName = trim(fieldName, " ");
+
+                std::string fieldValue = line.substr(colonPos + 1);
+                fieldName = trim(fieldName, " ");
+
+                if (response.headerFields.count(fieldName) != 0)
+                {
+                    response.setStatusLine("500", "Internal Server Error");
+                    //maybe add body?
+                    return;
+                }
+                response.setHeader(fieldName, fieldValue);
+            }
+        }
+    }
+    if (!response.body.empty() && response.headerFields.count("content-type") == 0)
+    {
+        response.setStatusLine("500", "Internal Server Error");
+        return;
+    }
+    if (response.statusLine.empty())
+        response.setStatusLine("200", "OK");
+    if (!response.body.empty() && response.headerFields.count("content-lenght") == 0)
+        response.setHeader("content-length", itoa(response.body.size()));
+
+    response.body = cgiOutput.substr(headerEnd + 2);
+    _logger.log(DEBUG, "CGI body: " + response.body);
 }

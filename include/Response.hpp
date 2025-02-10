@@ -16,6 +16,9 @@ class Response
     std::string reasonPhrase;
 
     bool isReady;
+
+    void setHeader(std::string fieldName, std::string fieldValue);
+    void setStatusLine(std::string statusCode, std::string reasonPhrase);
 };
 
 #endif //_RESPONSE_HPP_
