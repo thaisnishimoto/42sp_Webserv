@@ -75,7 +75,7 @@ void Cgi::setEnvVars(void)
     _envVars.push_back("SERVER_NAME=" + virtualServer.getServerName());
     _envVars.push_back("SERVER_PORT=" + itoa(virtualServer.getPort()));
     _envVars.push_back("SERVER_PROTOCOL=HTTP/1.1");
-    _envVars.push_back("SCRIPT_NAME=" + _scriptPath);
+    _envVars.push_back("SCRIPT_NAME=" + request.target);
     _envVars.push_back("REQUEST_METHOD=" + request.method);
     _envVars.push_back("PATH_INFO=" + request.localPathname);
     if (!request.queryString.empty())
