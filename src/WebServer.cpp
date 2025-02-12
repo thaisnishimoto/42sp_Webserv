@@ -288,12 +288,14 @@ void WebServer::run(void)
                                        ". Remaining: " + itoa(buf.size()));
                 _logger.log(INFO, "Response sent. Fd: " +
                                       itoa(connection.connectionFd));
+				//if connection close
 
                 epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL);
                 _logger.log(DEBUG, "Fd " + itoa(connection.connectionFd) +
                                        " deleted from epoll instance");
                 _connectionsMap.erase(eventFd);
                 close(eventFd);
+				//else EPOLLIN & continue;
             }
         }
     }
@@ -360,23 +362,27 @@ void WebServer::fillResponse(Connection& connection)
     {
         response.statusCode = "400";
         response.reasonPhrase = "Bad Request";
+		response.closeAfterSend = true;
     }
     else if (validateTransferEncoding(request) == false)
     {
         response.statusCode = "501";
         response.reasonPhrase = "Not Implemented";
+		response.closeAfterSend = true;
     }
     else if (request.bodyTooLarge == true)
     {
         response.statusCode = "413";
         response.reasonPhrase = "Content Too Large";
 		response.headerFields["content-length"] = "0";
+		response.closeAfterSend = true;
     }
 	else if (_unimplementedMethods.find(request.method)
 		!= _unimplementedMethods.end())
 	{
         response.statusCode = "501";
         response.reasonPhrase = "Not Implemented";
+		response.closeAfterSend = true;
 	}
     else
     {
@@ -401,6 +407,7 @@ void WebServer::fillResponse(Connection& connection)
 			response.statusCode = "405";
 			response.reasonPhrase = "Method Not Allowed";
 			response.headerFields["allow"] = location.getAllowedMethods(); 
+			response.closeAfterSend = true;
 			return;
 		}
 
@@ -424,6 +431,7 @@ void WebServer::fillResponse(Connection& connection)
 				_logger.log(DEBUG, msg);
 				response.statusCode = "500";
 				response.reasonPhrase = "Internal Server Error";
+				response.closeAfterSend = true;
 				return;
 			}
 
@@ -444,6 +452,7 @@ void WebServer::fillResponse(Connection& connection)
 			_logger.log(DEBUG, msg);
 			response.statusCode = "403";
 			response.reasonPhrase = "Forbidden";
+			response.closeAfterSend = true;
 			return;
 		}
 		if (request.isDir == false &&
@@ -453,6 +462,7 @@ void WebServer::fillResponse(Connection& connection)
 			_logger.log(DEBUG, msg);
 			response.statusCode = "403";
 			response.reasonPhrase = "Forbidden";
+			response.closeAfterSend = true;
 			return;
 		}
 
@@ -462,7 +472,6 @@ void WebServer::fillResponse(Connection& connection)
 		}
 		else if (request.method == "POST")
 		{
-			//TODO
 			handlePOST(connection);
 		}
 		else if (request.method == "DELETE")
@@ -1153,6 +1162,7 @@ void WebServer::handleGET(Connection& connection)
 		_logger.log(DEBUG, msg);
 		response.statusCode = "500";
 		response.reasonPhrase = "Internal Server Error";
+		response.closeAfterSend = true;
 		//add body?
 		return;
 	}
@@ -1204,6 +1214,7 @@ void WebServer::handlePOST(Connection& connection)
 		response.reasonPhrase = "Unsupported Media Type";
 		response.headerFields["accept-post"] = "multipart/form-data";
 		response.headerFields["content-length"] = "0";
+		response.closeAfterSend = true;
 		return;
 	}
 
@@ -1218,6 +1229,7 @@ void WebServer::handlePOST(Connection& connection)
 		response.reasonPhrase = "Unsupported Media Type";
 		response.headerFields["accept-post"] = "multipart/form-data";
 		response.headerFields["content-length"] = "0";
+		response.closeAfterSend = true;
 		return;
 	}
 
@@ -1248,6 +1260,7 @@ void WebServer::handlePOST(Connection& connection)
 			response.reasonPhrase = "Conflict";
 			response.body = "File already exists in webserv filesystem";
 			response.headerFields["content-length"] = itoa(static_cast<int>(response.body.length()));
+			response.closeAfterSend = true;
 			return;
 		}
 		
@@ -1263,6 +1276,7 @@ void WebServer::handlePOST(Connection& connection)
 		{
 			response.statusCode = "400";
 			response.reasonPhrase = "Bad Request";
+			response.closeAfterSend = true;
 			return;
 		}
 		content = content.substr(0, closeDelimPos);
@@ -1272,6 +1286,7 @@ void WebServer::handlePOST(Connection& connection)
 		{
 			response.statusCode = "500";
 			response.reasonPhrase = "Internal Server Error";
+			response.closeAfterSend = true;
 			return;
 		}
 
@@ -1327,6 +1342,7 @@ void WebServer::handleDELETE(Connection& connection)
 			_logger.log(DEBUG, msg);
 			response.statusCode = "500";
 			response.reasonPhrase = "Internal Server Error";
+			response.closeAfterSend = true;
 			return;
 		}
 
@@ -1342,6 +1358,7 @@ void WebServer::handleDELETE(Connection& connection)
 		_logger.log(DEBUG, "Webserv does not have rights to delete file");
 		response.statusCode = "403";
 		response.reasonPhrase = "Forbidden";
+		response.closeAfterSend = true;
 		return;
 	}
 }
