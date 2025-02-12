@@ -17,6 +17,7 @@ static Location& getLocation(VirtualServer* vServer,
 							 std::string locationName);
 static std::string baseDirectoryListing(void);
 static std::string getDirName(Request& request);
+static void fillConnectionHeader(Connection& connection);
 
 WebServer::WebServer(const std::string& configFile)
     : _config(configFile), _logger(DEBUG2)
@@ -213,8 +214,6 @@ void WebServer::run(void)
             throw std::runtime_error("Server Error: could not create socket");
         }
 
-        checkTimeouts();
-
         for (int i = 0; i < fdsReady; i++)
         {
             int eventFd = _eventsList[i].data.fd;
@@ -245,7 +244,7 @@ void WebServer::run(void)
                 parseRequest(connection);
                 if (connection.request.continueParsing == false)
                 {
-                    modifyEventInterest(_epollFd, eventFd, EPOLLOUT | EPOLLET);
+                    modifyEventInterest(_epollFd, eventFd, EPOLLOUT);
                     _logger.log(DEBUG,
                                 "Fd " + itoa(eventFd) + " now on EPOLLOUT");
                 }
@@ -300,7 +299,7 @@ void WebServer::run(void)
 				}
 				else
 				{
-					modifyEventInterest(_epollFd, eventFd, EPOLLIN | EPOLLET);
+					modifyEventInterest(_epollFd, eventFd, EPOLLIN);
 					_logger.log(DEBUG, "Fd " + itoa(connection.connectionFd) +
 						" event of interest changed to EPOLLIN");
 					connection.virtualServer = NULL;
@@ -309,6 +308,8 @@ void WebServer::run(void)
 				}
             }
         }
+
+        checkTimeouts();
     }
 }
 
@@ -488,6 +489,8 @@ void WebServer::fillResponse(Connection& connection)
 			return;
 		}
 
+		fillConnectionHeader(connection);
+
 		if (request.method == "GET")
 		{
 			handleGET(connection);
@@ -501,6 +504,23 @@ void WebServer::fillResponse(Connection& connection)
 			handleDELETE(connection);
 		}
     }
+}
+
+static void fillConnectionHeader(Connection& connection)
+{
+	Request& request = connection.request;
+	Response& response = connection.response;
+
+	if (request.headerFields.count("connection") == 0)
+	{
+		return;
+	}
+	if (request.headerFields["connection"] == "close")
+	{
+		response.closeAfterSend = true;
+		response.headerFields["connection"] = "close";
+		return;
+	}
 }
 
 void WebServer::buildResponseBuffer(Connection& connection)
@@ -1039,11 +1059,15 @@ int WebServer::consumeNetworkBuffer(int connectionFd,
 
     ssize_t bytesRead = recv(connectionFd, tempBuffer, sizeof(tempBuffer), 0);
 
-    if (bytesRead >= 0)
+    if (bytesRead > 0)
     {
         connectionBuffer.append(tempBuffer, bytesRead);
         return 0;
     }
+	else if (bytesRead == 0)
+	{
+		return 1;
+	}
     else
     {
         // TODO
@@ -1071,7 +1095,7 @@ int WebServer::acceptConnection(int epollFd, int eventFd)
     if (newFd != -1)
     {
         setNonBlocking(newFd);
-        target_event.events = EPOLLIN | EPOLLET;
+        target_event.events = EPOLLIN;
         target_event.data.fd = newFd;
         epoll_ctl(epollFd, EPOLL_CTL_ADD, newFd, &target_event);
         _logger.log(DEBUG,
