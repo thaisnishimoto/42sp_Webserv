@@ -54,13 +54,11 @@ void WebServer::signalHandler(int signum){
     if (signum == SIGINT || signum == SIGTERM)
     {
         logger.log(INFO, "Received shutdown signal. Initiating graceful shutdown...");
-        // std::cout << "Received shutdown signal. Initiating graceful shutdown." << std::endl;
         _running = false;
     }
     else if (signum == SIGPIPE)
     {
         logger.log(DEBUG, "Received SIGPIPE signal - ignoring");
-       // std::cout << "Received SIGPIPE signal - ignoring" << std::endl;
     }
 }
 
@@ -269,6 +267,10 @@ void WebServer::run(void)
             {
                 Connection& connection = _connectionsMap[eventFd];
                 parseRequest(connection);
+				if (_connectionsMap.find(eventFd) == _connectionsMap.end())
+				{
+					continue;
+				}
                 if (connection.request.continueParsing == false)
                 {
                     modifyEventInterest(_epollFd, eventFd, EPOLLOUT);
@@ -580,10 +582,11 @@ void WebServer::identifyVirtualServer(Connection& connection)
 void WebServer::parseRequest(Connection& connection)
 {
     Request& request = connection.request;
-    if (consumeNetworkBuffer(connection.connectionFd, connection.buffer) == 0)
+    if (consumeNetworkBuffer(connection.connectionFd, connection.buffer) == 1)
     {
-        connection.lastActivity = time(NULL);
+		return;
     }
+    connection.lastActivity = time(NULL);
     if (request.parsedRequestLine == false)
     {
         parseRequestLine(connection.buffer, request);
@@ -1059,7 +1062,6 @@ int WebServer::consumeNetworkBuffer(int connectionFd,
                                     std::string& connectionBuffer)
 {
     char tempBuffer[5];
-
     ssize_t bytesRead = recv(connectionFd, tempBuffer, sizeof(tempBuffer), 0);
 
     if (bytesRead > 0)
@@ -1069,16 +1071,13 @@ int WebServer::consumeNetworkBuffer(int connectionFd,
     }
     else
     {
-        // TODO
-        // Erase connection from _connectionsMap
-        std::cout << "Connection closed by the client" << std::endl;
         _logger.log(INFO, "Fd " + itoa(connectionFd) +
                               ". Connection closed by client.");
         connectionBuffer.clear();
-        // _connectionBuffers.erase(connectionFd);
         epoll_ctl(_epollFd, EPOLL_CTL_DEL, connectionFd, NULL);
         _logger.log(DEBUG, "Fd " + itoa(connectionFd) +
                                " deleted from epoll instance");
+        _connectionsMap.erase(connectionFd);
         close(connectionFd);
         return 1;
     }
@@ -1304,7 +1303,7 @@ void WebServer::handlePOST(Connection& connection)
 			response.headerFields["content-length"] = itoa(static_cast<int>(response.body.length()));
 			return;
 		}
-		
+
 		//substring to capture begining of content
 		std::string content;
 		content = request.body.substr(request.body.find("\r\n\r\n") + 4);
@@ -1390,7 +1389,7 @@ void WebServer::handleDELETE(Connection& connection)
 		response.reasonPhrase = "No Content";
 		return;
 	}
-	else 
+	else
 	{
 
 		_logger.log(DEBUG, "Webserv does not have rights to delete file");
