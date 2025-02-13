@@ -24,7 +24,7 @@ void Cgi::execute(void)
     
     if (pid == 0)
     {
-        //if POST, read body from pipe[0]
+        dup2(pipeFd[0], STDIN_FILENO);
         close(pipeFd[0]);
 
         dup2(pipeFd[1], STDOUT_FILENO);
@@ -35,9 +35,14 @@ void Cgi::execute(void)
         std::vector<char *> envp = prepareEnvp();
 
         execve("/usr/bin/python3", argv, envp.data());
+        close(STDIN_FILENO);
+        close(STDOUT_FILENO);
+        close(STDERR_FILENO);
         exit(EXIT_FAILURE);
     }
     //if POST, write body to pipe[1]
+    //add to epoll before writing
+    write(pipeFd[1], _connection.request.body.c_str(), _connection.request.body.size());
     close(pipeFd[1]);
 
     int status;
@@ -143,12 +148,13 @@ void WebServer::buildCgiResponse(Response& response, std::string& cgiOutput)
     if (headerEnd == std::string::npos)
     {
         response.setStatusLine("500", "Internal Server Error");
-        //maybe add body?
         return;
     }
 
     std::string headers = cgiOutput.substr(0, headerEnd);
-    _logger.log(DEBUG, "CGI headers: " + response.body);
+    _logger.log(DEBUG, "CGI headers: " + headers);
+    response.body = cgiOutput.substr(headerEnd + 2);
+    _logger.log(DEBUG, "CGI body: " + response.body);
 
     std::istringstream headerStream(headers);
     std::string line;
@@ -187,7 +193,4 @@ void WebServer::buildCgiResponse(Response& response, std::string& cgiOutput)
         response.setStatusLine("200", "OK");
     if (!response.body.empty() && response.headerFields.count("content-lenght") == 0)
         response.setHeader("content-length", itoa(response.body.size()));
-
-    response.body = cgiOutput.substr(headerEnd + 2);
-    _logger.log(DEBUG, "CGI body: " + response.body);
 }
