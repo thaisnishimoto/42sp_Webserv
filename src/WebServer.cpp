@@ -550,7 +550,7 @@ void WebServer::fillResponse(Connection& connection)
 
         if (isCgiRequest(connection, location))
         {
-            _logger.log(INFO, "Handling CGI Request"); 
+            _logger.log(INFO, "Handling CGI Request: " + connection.request.method); 
             Cgi cgiHandler(connection);
          	if (access(cgiHandler.getScriptPath().c_str(), X_OK) != 0)
     		{
