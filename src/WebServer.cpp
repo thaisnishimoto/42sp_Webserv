@@ -18,6 +18,7 @@ static Location& getLocation(VirtualServer* vServer,
 static std::string baseDirectoryListing(void);
 static std::string getDirName(Request& request);
 static void fillConnectionHeader(Connection& connection);
+static std::string getContentType(std::string& fileName);
 
 bool WebServer::_running = true;
 
@@ -1280,9 +1281,37 @@ void WebServer::handleGET(Connection& connection)
 	msg = "Filling response object with data from " + request.localPathname;
 	_logger.log(DEBUG, msg);
 	response.body = fileContent;
+	response.headerFields["content-type"] = getContentType(request.localPathname);
 	response.headerFields["content-length"] = itoa(static_cast<int>(fileContent.length()));
 	response.statusCode = "200";
 	response.reasonPhrase = "OK";
+}
+
+static std::string getContentType(std::string& fileName)
+{
+	std::string contentType;
+	std::string fileExtension = fileName.substr(fileName.rfind("."), std::string::npos);
+	if (fileExtension == ".txt")
+		contentType = "text/plain";
+	else if (fileExtension == ".html")
+		contentType = "text/html";
+	else if (fileExtension == ".css")
+		contentType = "text/css";
+	else if (fileExtension == ".png")
+		contentType = "image/png";
+	else if (fileExtension == ".jpeg")
+		contentType = "image/jpeg";
+	else if (fileExtension == ".jpg")
+		contentType = "image/jpg";
+	else if (fileExtension == ".gif")
+		contentType = "image/gif";
+	else if (fileExtension == ".json")
+		contentType = "application/json";
+	else
+		contentType = "application/octet-stream";
+
+	return contentType;
+
 }
 
 static std::string baseDirectoryListing(void)
