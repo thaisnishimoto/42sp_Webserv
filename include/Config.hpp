@@ -40,6 +40,7 @@ class Config
                            VirtualServer& VirtualServer);
     void fillLocation(std::stringstream& ss, Location& location);
     void validateVirtualServer(VirtualServer& VirtualServer);
+    bool isValidLocation(Location &location);
 
     // get
 
