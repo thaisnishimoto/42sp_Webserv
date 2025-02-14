@@ -16,6 +16,7 @@ class Response
     std::string reasonPhrase;
 
     bool isReady;
+	bool closeAfterSend;
 };
 
 #endif //_RESPONSE_HPP_
