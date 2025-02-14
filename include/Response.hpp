@@ -17,6 +17,7 @@ class Response
 
     bool isReady;
 	bool closeAfterSend;
+    bool isWaitingForCgiOutput;
 
     void setHeader(std::string fieldName, std::string fieldValue);
     void setStatusLine(std::string statusCode, std::string reasonPhrase);

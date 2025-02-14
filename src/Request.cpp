@@ -13,6 +13,7 @@ Request::Request(void)
     contentLength = 0;
     isChunked = false;
 	isDir = false;
+    isCgi = false;
 }
 
 std::string Request::getHeader(std::string fieldName)

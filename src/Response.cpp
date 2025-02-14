@@ -4,6 +4,7 @@ Response::Response(void)
 {
 	isReady = false;
 	closeAfterSend = false;
+    isWaitingForCgiOutput = false;
 }
 
 void Response::setHeader(std::string fieldName, std::string fieldValue)

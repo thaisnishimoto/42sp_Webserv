@@ -32,6 +32,7 @@ class Request
     bool continueParsing;
 
     bool isChunked;
+    bool isCgi;
 
     Request(void);
     std::string getHeader(std::string fieldName);

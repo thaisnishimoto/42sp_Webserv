@@ -264,6 +264,7 @@ void WebServer::run(void)
             }
             else if (_cgiProcesses.count(eventFd) == 1)
             {
+                if ((_eventsList[i].events & EPOLLIN) == EPOLLIN)
 
             }
             else if ((_eventsList[i].events & EPOLLIN) == EPOLLIN)
@@ -287,6 +288,8 @@ void WebServer::run(void)
                 if (connection.response.isReady == false)
                 {
                     fillResponse(connection);
+                    if (connection.response.isWaitingForCgiOutput == true)
+                        continue;
                     buildResponseBuffer(connection);
                     connection.response.isReady = true;
                 }
