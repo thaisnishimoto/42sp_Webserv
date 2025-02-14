@@ -262,6 +262,10 @@ void WebServer::run(void)
                     _connectionsMap.insert(pair);
                 }
             }
+            else if (_cgiProcesses.count(eventFd) == 1)
+            {
+
+            }
             else if ((_eventsList[i].events & EPOLLIN) == EPOLLIN)
             {
                 Connection& connection = _connectionsMap[eventFd];
@@ -560,8 +564,8 @@ void WebServer::fillResponse(Connection& connection)
                 response.reasonPhrase = "Forbidden";
                 return;
             }
-            cgiHandler.execute();
-            buildCgiResponse(response, cgiHandler.getOutput());
+            cgiHandler.executeScript(_cgiProcesses, _epollFd);
+            // buildCgiResponse(response, cgiHandler.getOutput());
         }
 
 		else if (request.method == "GET")
@@ -1171,7 +1175,8 @@ int WebServer::acceptConnection(int epollFd, int eventFd)
     newFd = accept(eventFd, NULL, NULL);
     if (newFd != -1)
     {
-        setNonBlocking(newFd);
+        if (!setNonBlocking(newFd))
+            throw std::runtime_error("Server Error: Could not set fd to NonBlocking");
         target_event.events = EPOLLIN;
         target_event.data.fd = newFd;
         epoll_ctl(epollFd, EPOLL_CTL_ADD, newFd, &target_event);
@@ -1181,21 +1186,21 @@ int WebServer::acceptConnection(int epollFd, int eventFd)
     return newFd;
 }
 
-void WebServer::setNonBlocking(int fd)
-{
-    int flag = fcntl(fd, F_GETFL);
-    if (flag < 0)
-    {
-        std::cerr << std::strerror(errno) << std::endl;
-        throw std::runtime_error("Server Error: Could not recover fd flags");
-    }
-    if (fcntl(fd, F_SETFL, flag | O_NONBLOCK) < 0)
-    {
-        std::cerr << std::strerror(errno) << std::endl;
-        throw std::runtime_error(
-            "Server Error: Could not set fd to NonBlocking");
-    }
-}
+// void WebServer::setNonBlocking(int fd)
+// {
+//     int flag = fcntl(fd, F_GETFL);
+//     if (flag < 0)
+//     {
+//         std::cerr << std::strerror(errno) << std::endl;
+//         throw std::runtime_error("Server Error: Could not recover fd flags");
+//     }
+//     if (fcntl(fd, F_SETFL, flag | O_NONBLOCK) < 0)
+//     {
+//         std::cerr << std::strerror(errno) << std::endl;
+//         throw std::runtime_error(
+//             "Server Error: Could not set fd to NonBlocking");
+//     }
+// }
 
 static bool isTargetDir(Request& request)
 {

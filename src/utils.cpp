@@ -89,3 +89,19 @@ bool isValidExtension(const std::string& fileName, const std::string& extension)
     }
     return true;
 }
+
+bool setNonBlocking(int fd)
+{
+    int flag = fcntl(fd, F_GETFL);
+    if (flag < 0)
+    {
+        std::cerr << std::strerror(errno) << std::endl;
+        return false;
+    }
+    if (fcntl(fd, F_SETFL, flag | O_NONBLOCK) < 0)
+    {
+        std::cerr << std::strerror(errno) << std::endl;
+        return false;
+    }
+    return true;
+}

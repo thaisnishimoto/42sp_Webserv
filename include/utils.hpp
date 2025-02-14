@@ -4,6 +4,10 @@
 #include <cctype>
 #include <sstream>
 #include <string>
+#include <fcntl.h>
+#include <iostream>
+#include <cerrno>
+#include <cstring>
 
 void tolower(std::string& str);
 std::string getNextLineRN(std::string& buffer);
@@ -13,5 +17,6 @@ std::string itoa(int n);
 bool removeLastChar(std::string& word, char delimiter);
 bool isValidExtension(const std::string& fileName,
                       const std::string& extension);
+bool setNonBlocking(int fd);
 
 #endif
