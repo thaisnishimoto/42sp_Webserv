@@ -19,6 +19,8 @@ static std::string baseDirectoryListing(void);
 static std::string getDirName(Request& request);
 static void fillConnectionHeader(Connection& connection);
 
+bool WebServer::_running = true;
+
 WebServer::WebServer(const std::string& configFile)
     : _config(configFile), _logger(DEBUG2)
 {
@@ -47,6 +49,19 @@ WebServer::~WebServer(void)
     // {
     // 	close(_epollFd);
     // }
+}
+
+void WebServer::signalHandler(int signum){
+    static Logger logger;
+    if (signum == SIGINT || signum == SIGTERM)
+    {
+        logger.log(INFO, "Received shutdown signal. Initiating graceful shutdown...");
+        _running = false;
+    }
+    else if (signum == SIGPIPE)
+    {
+        logger.log(DEBUG, "Received SIGPIPE signal - ignoring");
+    }
 }
 
 void WebServer::init(void)
@@ -200,16 +215,25 @@ void WebServer::checkTimeouts(void)
 
 void WebServer::run(void)
 {
+    //set signal handlers
+    signal(SIGINT, signalHandler);
+    signal(SIGTERM, signalHandler);
+    signal(SIGPIPE, signalHandler);
+
     int fdsReady;
     struct epoll_event _eventsList[MAX_EVENTS];
 
     _logger.log(INFO, "webserv ready to receive connections");
-    while (true)
+    while (_running)
     {
         fdsReady = epoll_wait(_epollFd, _eventsList, MAX_EVENTS, 1000);
         if (fdsReady == -1)
         {
             // TODO: deal with EINTR. (when signal is received during wait)
+            if(_running == false)
+            {
+                break;
+            }
             std::cerr << std::strerror(errno) << std::endl;
             throw std::runtime_error("Server Error: could not create socket");
         }
@@ -242,6 +266,10 @@ void WebServer::run(void)
             {
                 Connection& connection = _connectionsMap[eventFd];
                 parseRequest(connection);
+				if (_connectionsMap.find(eventFd) == _connectionsMap.end())
+				{
+					continue;
+				}
                 if (connection.request.continueParsing == false)
                 {
                     modifyEventInterest(_epollFd, eventFd, EPOLLOUT);
@@ -311,6 +339,34 @@ void WebServer::run(void)
 
         checkTimeouts();
     }
+
+    cleanup();
+}
+
+void WebServer::cleanup(void) {
+    _logger.log(DEBUG, "cleaning up...");
+    std::map<int, Connection>::iterator itConn = _connectionsMap.begin();
+    std::map<int, Connection>::iterator iteConn = _connectionsMap.end();
+
+    while (itConn != iteConn)
+    {
+        close(itConn->second.connectionFd);
+        itConn++;
+    }
+
+    std::map<int, std::pair<uint32_t, uint16_t> >::iterator itSock = _socketsToPairs.begin();
+    std::map<int, std::pair<uint32_t, uint16_t> >::iterator iteSock = _socketsToPairs.end();
+
+    while (itSock != iteSock)
+    {
+        close(itSock->first);
+        itSock++;
+    }
+    if (_epollFd > 0)
+    {
+        close(_epollFd);
+    }
+    _logger.log(INFO, "Server shutdown complete");
 }
 
 void WebServer::modifyEventInterest(int epollFd, int eventFd, uint32_t event)
@@ -415,7 +471,7 @@ void WebServer::fillResponse(Connection& connection)
 
 			response.statusCode = "301";
 			response.reasonPhrase = "Moved Permanently";
-			response.headerFields["location"] = location.getRedirect(); 
+			response.headerFields["location"] = location.getRedirect();
 			return;
 		}
 
@@ -423,7 +479,7 @@ void WebServer::fillResponse(Connection& connection)
 		{
 			response.statusCode = "405";
 			response.reasonPhrase = "Method Not Allowed";
-			response.headerFields["allow"] = location.getAllowedMethods(); 
+			response.headerFields["allow"] = location.getAllowedMethods();
 			response.closeAfterSend = true;
 			response.headerFields["connection"] = "close";
 			return;
@@ -577,10 +633,11 @@ void WebServer::identifyVirtualServer(Connection& connection)
 void WebServer::parseRequest(Connection& connection)
 {
     Request& request = connection.request;
-    if (consumeNetworkBuffer(connection.connectionFd, connection.buffer) == 0)
+    if (consumeNetworkBuffer(connection.connectionFd, connection.buffer) == 1)
     {
-        connection.lastActivity = time(NULL);
+		return;
     }
+    connection.lastActivity = time(NULL);
     if (request.parsedRequestLine == false)
     {
         parseRequestLine(connection.buffer, request);
@@ -1056,7 +1113,6 @@ int WebServer::consumeNetworkBuffer(int connectionFd,
                                     std::string& connectionBuffer)
 {
     char tempBuffer[5];
-
     ssize_t bytesRead = recv(connectionFd, tempBuffer, sizeof(tempBuffer), 0);
 
     if (bytesRead > 0)
@@ -1070,16 +1126,13 @@ int WebServer::consumeNetworkBuffer(int connectionFd,
 	}
     else
     {
-        // TODO
-        // Erase connection from _connectionsMap
-        std::cout << "Connection closed by the client" << std::endl;
         _logger.log(INFO, "Fd " + itoa(connectionFd) +
                               ". Connection closed by client.");
         connectionBuffer.clear();
-        // _connectionBuffers.erase(connectionFd);
         epoll_ctl(_epollFd, EPOLL_CTL_DEL, connectionFd, NULL);
         _logger.log(DEBUG, "Fd " + itoa(connectionFd) +
                                " deleted from epoll instance");
+        _connectionsMap.erase(connectionFd);
         close(connectionFd);
         return 1;
     }
@@ -1313,7 +1366,7 @@ void WebServer::handlePOST(Connection& connection)
 			response.headerFields["connection"] = "close";
 			return;
 		}
-		
+
 		//substring to capture begining of content
 		std::string content;
 		content = request.body.substr(request.body.find("\r\n\r\n") + 4);
@@ -1409,7 +1462,7 @@ void WebServer::handleDELETE(Connection& connection)
 		response.reasonPhrase = "No Content";
 		return;
 	}
-	else 
+	else
 	{
 
 		_logger.log(DEBUG, "Webserv does not have rights to delete file");

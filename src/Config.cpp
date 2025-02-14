@@ -286,6 +286,7 @@ void Config::loadFile(const std::string& configFile)
         throw std::runtime_error("");
     }
     _sFile << file.rdbuf();
+	file.close();
 }
 
 std::map<std::pair<uint32_t, uint16_t>, VirtualServer*>

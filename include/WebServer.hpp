@@ -25,17 +25,16 @@
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <vector>
+#include <csignal>
 
 class WebServer
 {
   private:
     int _epollFd;
     Config _config;
+    static bool _running;
     std::set<uint16_t> _ports;
     std::map<int, std::pair<uint32_t, uint16_t> > _socketsToPairs;
-	//delete line below?
-    std::vector<VirtualServer> _virtualServers;
     std::map<std::pair<uint32_t, uint16_t>,
              std::map<std::string, VirtualServer> >
         _virtualServersLookup;
@@ -49,6 +48,7 @@ class WebServer
     std::set<std::string> _unimplementedMethods;
 
     Logger _logger;
+    static void signalHandler(int signum);
 
   public:
     WebServer(const std::string& configFile);
@@ -88,6 +88,7 @@ class WebServer
 	void handleDELETE(Connection& connection);
 
     int consumeNetworkBuffer(int connectionFd, std::string& connectionBuffer);
+    void cleanup(void);
 };
 
 #endif //_WERBSERVER_HPP_
