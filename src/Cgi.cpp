@@ -6,12 +6,17 @@ Cgi::Cgi(Connection& connection) : _connection(connection)
     _scriptPath = connection.request.localPathname; 
 }
 
-void Cgi::execute(void)
+void Cgi::executeScript(std::map<int, int>& cgiProcesses, int epollFd)
 {
     int pipeFd[2];
     if (pipe(pipeFd) == -1)
     {
         std::cerr << "Pipe error" << std::endl;
+        return;
+    }
+    if (!setNonBlocking(pipeFd[0]) || !setNonBlocking(pipeFd[1]))
+    {
+        std::cerr << "Server Error: Could not set fd to NonBlocking" << std::endl;
         return;
     }
 
@@ -40,37 +45,70 @@ void Cgi::execute(void)
         close(STDERR_FILENO);
         exit(EXIT_FAILURE);
     }
-    //if POST, write body to pipe[1]
     //add to epoll before writing
-    write(pipeFd[1], _connection.request.body.c_str(), _connection.request.body.size());
+    if (_connection.request.method == "POST")
+        write(pipeFd[1], _connection.request.body.c_str(), _connection.request.body.size());
     close(pipeFd[1]);
 
-    int status;
+    struct epoll_event cgiEvent;
+    std::memset(&cgiEvent, 0, sizeof(cgiEvent));
+    cgiEvent.events = EPOLLIN;
+    cgiEvent.data.fd = pipeFd[0];
+    if (epoll_ctl(epollFd, EPOLL_CTL_ADD, pipeFd[0], &cgiEvent) == -1)
+    {
+        std::cerr << "Epoll add error: " << std::strerror(errno) << std::endl;
+        close(pipeFd[0]);
+        return;
+    }
+    // _connection.response.isWaitingForCgiOutput = true;
+
+    if (cgiProcesses.count(pipeFd[0]) != 0)
+    {
+        std::cerr << "Pipe fd already listed as cgi process in server" << std::endl;
+        // kill(pid, SIGTERM);
+        // waitpid(pid, NULL, 0); // Reap zombie process
+        // epoll_ctl(epollFd, EPOLL_CTL_DEL, pipeFd[0], NULL);
+        kill(pid, SIGTERM);  // First, try graceful termination
+        if (waitpid(pid, NULL, WNOHANG) == 0) // If still running
+        {
+            std::cerr << "Process " << pid << " did not terminate, sending SIGKILL" << std::endl;
+            kill(pid, SIGKILL);  // Forcefully terminate
+        }
+        // Non-blocking cleanup to avoid zombies
+        //BUSY WAITNG -change using sigchild
+        while (waitpid(pid, NULL, WNOHANG) > 0);
+        close(pipeFd[0]);
+        return;
+    }
+    cgiProcesses[pipeFd[0]] = pid; 
+}
+
+    // int status;
     //TODO
     //Change so server doesnt block here
-    waitpid(pid, &status, 0);
-    if (WIFEXITED(status) && WEXITSTATUS(status) != 0)
-    {
-        //execve failed
-        std::cerr << "Execve error" << std::endl;
-    }
-    else
-    {
-        char buffer[1024];
-        ssize_t bytesRead;
-        while ((bytesRead = read(pipeFd[0], buffer, sizeof(buffer))) > 0)
-        {
-            _rawOutputData.append(buffer, bytesRead);
-            std::cout << "cgi output: " << _rawOutputData << std::endl;
-        }
-        if (bytesRead == -1)
-        {
-            //read failed
-            std::cerr << "Execve error" << std::endl;
-        }
-    }
-    close(pipeFd[0]);
-}
+    // waitpid(pid, &status, 0);
+    // if (WIFEXITED(status) && WEXITSTATUS(status) != 0)
+    // {
+    //     //execve failed
+    //     std::cerr << "Execve error" << std::endl;
+    // }
+    // else
+    // {
+    //     char buffer[1024];
+    //     ssize_t bytesRead;
+    //     while ((bytesRead = read(pipeFd[0], buffer, sizeof(buffer))) > 0)
+    //     {
+    //         _rawOutputData.append(buffer, bytesRead);
+    //         std::cout << "cgi output: " << _rawOutputData << std::endl;
+    //     }
+    //     if (bytesRead == -1)
+    //     {
+    //         //read failed
+    //         std::cerr << "Execve error" << std::endl;
+    //     }
+    // }
+    // close(pipeFd[0]);
+// }
 
 void Cgi::setEnvVars(void)
 {

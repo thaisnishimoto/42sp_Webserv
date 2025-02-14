@@ -3,6 +3,7 @@
 
 #include "Response.hpp"
 #include "Connection.hpp"
+#include "utils.hpp"
 #include <vector>
 #include <sys/wait.h> //waitpid
 #include <string> //istringstream
@@ -11,7 +12,7 @@ class Cgi
 {
   public:
     Cgi(Connection& connection);
-    void execute(void);
+    void executeScript(std::map<int, int>& cgiProcesses, int epollFd);
     std::string getScriptPath(void) {return _scriptPath;}
     std::string& getOutput(void) {return _rawOutputData;}
     void setEnvVars(void);
