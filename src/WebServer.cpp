@@ -262,10 +262,80 @@ void WebServer::run(void)
                     _connectionsMap.insert(pair);
                 }
             }
-            else if (_cgiProcesses.count(eventFd) == 1)
+            else if (_cgiMap.count(eventFd) == 1)
             {
-                if ((_eventsList[i].events & EPOLLIN) == EPOLLIN)
+                std::cout << "READING CGI OUTPUT AFTER EPOLL" << std::endl;
+                Cgi cgiInstance = *_cgiMap[eventFd];
+                int cgiPid = _cgiMap[eventFd]->getPid();
+                int cgiStatus;
+                if (waitpid(cgiPid, &cgiStatus, WNOHANG) == 0)
+                {
+                    std::cout << "No hanging" << std::endl;
+                    continue;
+                }
+                else
+                {
+                    if (WIFEXITED(cgiStatus))
+                        printf("exited, status=%d\n", WEXITSTATUS(cgiStatus));
+                    else if (WIFSIGNALED(cgiStatus))
+                        printf("killed by signal %d\n", WTERMSIG(cgiStatus));
+                }
+                std::cout << "READING FROM CGI PIPE: " << eventFd << std::endl;
+                Connection& connection = _cgiMap[eventFd]->_connection;
 
+                if ((_eventsList[i].events & EPOLLIN) == EPOLLIN)
+                {
+                    char buffer[1024];
+                    // char buffer[5];
+                    ssize_t bytesRead;
+                    std::string rawOutputData;
+                    // if ((bytesRead = read(eventFd, buffer, sizeof(buffer))) > 0)
+                    // {
+                    //     rawOutputData.append(buffer, bytesRead);
+                    //     memset(buffer, 0, sizeof(buffer));
+                    //     std::cout << "Webserver received rawOutput: " << rawOutputData << std::endl;
+                    // }
+                    while ((bytesRead = read(eventFd, buffer, sizeof(buffer))) > 0)
+                    {
+                        rawOutputData.append(buffer, bytesRead);
+                    }
+                    if (bytesRead == -1)
+                    {
+                        // std::cout << " << perror("READ ERROR") << std::endl;
+                        perror("READ ERROR");
+                        connection.response.setStatusLine("500", "Internal Server Error");
+                        _logger.log(ERROR, "Connection closed due to cgi read error");
+                        epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL);
+                        _cgiMap.erase(eventFd);
+                        _logger.log(DEBUG,
+                                    "Cgi instance removed from cgiMap. Pipe Fd: " +
+                                        itoa(eventFd));
+                        // int cgiPid = _cgiMap[eventFd]->getPid();
+                        //send kill?
+                        close(eventFd);
+                        continue;
+                    }
+                    // else if (bytesRead == 0)
+                    // {
+                    //     std::cout << "CGI finished sendind data" << std::endl;
+                    //     buildCgiResponse(connection.response, rawOutputData);
+                    //     epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL);
+                    //     _cgiMap.erase(eventFd);
+                    //     int cgiPid = _cgiMap[eventFd]->getPid();
+                    //     waitpid(cgiPid, NULL, WNOHANG); // If still running
+                    //     close(eventFd);
+                    //     buildResponseBuffer(connection);
+                    //     connection.response.isReady = true;
+                    // }
+                    std::cout << "Webserver received rawOutput: " << rawOutputData << std::endl;
+                    buildCgiResponse(connection.response, rawOutputData);
+                    buildResponseBuffer(connection);
+                    epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL);
+                    _cgiMap.erase(eventFd);
+                    close(eventFd);
+                    connection.response.isWaitingForCgiOutput = false;
+                    connection.response.isReady = true;
+                }
             }
             else if ((_eventsList[i].events & EPOLLIN) == EPOLLIN)
             {
@@ -285,6 +355,8 @@ void WebServer::run(void)
             else if ((_eventsList[i].events & EPOLLOUT) == EPOLLOUT)
             {
                 Connection& connection = _connectionsMap[eventFd];
+                if (connection.response.isWaitingForCgiOutput == true)
+                    continue;
                 if (connection.response.isReady == false)
                 {
                     fillResponse(connection);
@@ -558,16 +630,53 @@ void WebServer::fillResponse(Connection& connection)
         if (isCgiRequest(connection, location))
         {
             _logger.log(INFO, "Handling CGI Request: " + connection.request.method); 
-            Cgi cgiHandler(connection);
-         	if (access(cgiHandler.getScriptPath().c_str(), X_OK) != 0)
+            Cgi *cgiInstance = new Cgi(connection);
+         	if (access(cgiInstance->getScriptPath().c_str(), X_OK) != 0)
     		{
-        		std::string msg = "CGI script it not executable: " + cgiHandler.getScriptPath();
+        		std::string msg = "CGI script it not executable: " + cgiInstance->getScriptPath();
                 _logger.log(DEBUG, msg);
-                response.statusCode = "403";
-                response.reasonPhrase = "Forbidden";
+                response.setStatusLine("403", "Forbidden");
                 return;
             }
-            cgiHandler.executeScript(_cgiProcesses, _epollFd);
+            int pipeFd = cgiInstance->executeScript();
+            std::cout << "CGI OUTPUT PIPE_FD = " << pipeFd << std::endl;
+            if (pipeFd == -1)
+    		{
+                return;
+            }
+
+            struct epoll_event cgiEvent;
+            std::memset(&cgiEvent, 0, sizeof(cgiEvent));
+            cgiEvent.events = EPOLLIN;
+            cgiEvent.data.fd = pipeFd;
+            if (epoll_ctl(_epollFd, EPOLL_CTL_ADD, pipeFd, &cgiEvent) == -1)
+            {
+                std::cerr << "Epoll add error: " << std::strerror(errno) << std::endl;
+                close(pipeFd);
+                return;
+            }
+            if (_cgiMap.count(pipeFd) != 0)
+            {
+                int cgiPid = cgiInstance->getPid();
+                std::cerr << "Pipe fd already listed as cgi instance in server" << std::endl;
+                // kill(pid, SIGTERM);
+                // waitpid(pid, NULL, 0); // Reap zombie process
+                // epoll_ctl(epollFd, EPOLL_CTL_DEL, pipeFd[0], NULL);
+                kill(cgiPid, SIGTERM);  // First, try graceful termination
+                if (waitpid(cgiPid, NULL, WNOHANG) == 0) // If still running
+                {
+                    std::cerr << "Process " << cgiPid << " did not terminate, sending SIGKILL" << std::endl;
+                    kill(cgiPid, SIGKILL);  // Forcefully terminate
+                }
+                // Non-blocking cleanup to avoid zombies
+                //BUSY WAITNG -change using sigchild
+                while (waitpid(cgiPid, NULL, WNOHANG) > 0);
+                close(pipeFd);
+                response.setStatusLine("500", "Internal Server Error");
+                return;
+            }
+            _cgiMap[pipeFd] = cgiInstance;
+            response.isWaitingForCgiOutput = true;
             // buildCgiResponse(response, cgiHandler.getOutput());
         }
 

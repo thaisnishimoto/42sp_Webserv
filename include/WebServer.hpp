@@ -33,7 +33,7 @@ class WebServer
     static bool _running;
     std::set<uint16_t> _ports;
     std::map<int, std::pair<uint32_t, uint16_t> > _socketsToPairs;
-    std::map<int, int> _cgiProcesses;
+    std::map<int, Cgi*> _cgiMap;
     std::map<std::pair<uint32_t, uint16_t>,
              std::map<std::string, VirtualServer> >
         _virtualServersLookup;

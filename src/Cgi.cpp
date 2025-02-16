@@ -6,25 +6,25 @@ Cgi::Cgi(Connection& connection) : _connection(connection)
     _scriptPath = connection.request.localPathname; 
 }
 
-void Cgi::executeScript(std::map<int, int>& cgiProcesses, int epollFd)
+int Cgi::executeScript(void)
 {
     int pipeFd[2];
     if (pipe(pipeFd) == -1)
     {
         std::cerr << "Pipe error" << std::endl;
-        return;
+        return -1;
     }
     if (!setNonBlocking(pipeFd[0]) || !setNonBlocking(pipeFd[1]))
     {
         std::cerr << "Server Error: Could not set fd to NonBlocking" << std::endl;
-        return;
+        return -1;
     }
 
     int pid = fork();
     if (pid == -1)
     {
         std::cerr << "Fork error" << std::endl;
-        return;
+        return -1;
     }
     
     if (pid == 0)
@@ -45,42 +45,15 @@ void Cgi::executeScript(std::map<int, int>& cgiProcesses, int epollFd)
         close(STDERR_FILENO);
         exit(EXIT_FAILURE);
     }
-    //add to epoll before writing
-    if (_connection.request.method == "POST")
-        write(pipeFd[1], _connection.request.body.c_str(), _connection.request.body.size());
-    close(pipeFd[1]);
-
-    struct epoll_event cgiEvent;
-    std::memset(&cgiEvent, 0, sizeof(cgiEvent));
-    cgiEvent.events = EPOLLIN;
-    cgiEvent.data.fd = pipeFd[0];
-    if (epoll_ctl(epollFd, EPOLL_CTL_ADD, pipeFd[0], &cgiEvent) == -1)
+    else
     {
-        std::cerr << "Epoll add error: " << std::strerror(errno) << std::endl;
-        close(pipeFd[0]);
-        return;
-    }
-    // _connection.response.isWaitingForCgiOutput = true;
+        _pid = pid;
+        if (_connection.request.method == "POST")
+            write(pipeFd[1], _connection.request.body.c_str(), _connection.request.body.size());
+        close(pipeFd[1]);
 
-    if (cgiProcesses.count(pipeFd[0]) != 0)
-    {
-        std::cerr << "Pipe fd already listed as cgi process in server" << std::endl;
-        // kill(pid, SIGTERM);
-        // waitpid(pid, NULL, 0); // Reap zombie process
-        // epoll_ctl(epollFd, EPOLL_CTL_DEL, pipeFd[0], NULL);
-        kill(pid, SIGTERM);  // First, try graceful termination
-        if (waitpid(pid, NULL, WNOHANG) == 0) // If still running
-        {
-            std::cerr << "Process " << pid << " did not terminate, sending SIGKILL" << std::endl;
-            kill(pid, SIGKILL);  // Forcefully terminate
-        }
-        // Non-blocking cleanup to avoid zombies
-        //BUSY WAITNG -change using sigchild
-        while (waitpid(pid, NULL, WNOHANG) > 0);
-        close(pipeFd[0]);
-        return;
+        return pipeFd[0];
     }
-    cgiProcesses[pipeFd[0]] = pid; 
 }
 
     // int status;
@@ -210,7 +183,7 @@ void WebServer::buildCgiResponse(Response& response, std::string& cgiOutput)
                 fieldName = trim(fieldName, " ");
 
                 std::string fieldValue = line.substr(colonPos + 1);
-                fieldName = trim(fieldName, " ");
+                fieldValue = trim(fieldValue, " ");
 
                 if (response.headerFields.count(fieldName) != 0)
                 {
