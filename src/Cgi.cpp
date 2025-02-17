@@ -8,33 +8,47 @@ Cgi::Cgi(Connection& connection) : _connection(connection)
     lastActivity = time(NULL);
 }
 
+void Cgi::closePipe(int pipeFd[2])
+{
+    close(pipeFd[0]);
+    close(pipeFd[1]);
+}
+
 int Cgi::executeScript(void)
 {
     int pipeFd[2];
     if (pipe(pipeFd) == -1)
     {
-        std::cerr << "Pipe error" << std::endl;
+        handleError("Cgi pipe failed");
         return -1;
     }
     if (!setNonBlocking(pipeFd[0]) || !setNonBlocking(pipeFd[1]))
     {
-        std::cerr << "Server Error: Could not set fd to NonBlocking" << std::endl;
+        closePipe(pipeFd);
+        handleError("Could not sef pipe fd to non blocking");
         return -1;
     }
-
     int pid = fork();
     if (pid == -1)
     {
-        std::cerr << "Fork error" << std::endl;
+        handleError("Cgi fork failed");
         return -1;
     }
     
     if (pid == 0)
     {
-        dup2(pipeFd[0], STDIN_FILENO);
+        if (dup2(pipeFd[0], STDIN_FILENO) == -1)
+        {
+            closePipe(pipeFd);
+            exit(EXIT_FAILURE);
+        }
         close(pipeFd[0]);
 
-        dup2(pipeFd[1], STDOUT_FILENO);
+        if (dup2(pipeFd[1], STDOUT_FILENO) == -1)
+        {
+            closePipe(pipeFd);
+            exit(EXIT_FAILURE);
+        }
         close(pipeFd[1]);
 
         char* const argv[] = {const_cast<char *>("/usr/bin/python3"), const_cast<char *>(_scriptPath.c_str()), NULL};    
@@ -42,6 +56,7 @@ int Cgi::executeScript(void)
         std::vector<char *> envp = prepareEnvp();
 
         execve("/usr/bin/python3", argv, envp.data());
+        closePipe(pipeFd);
         close(STDIN_FILENO);
         close(STDOUT_FILENO);
         close(STDERR_FILENO);
@@ -51,12 +66,25 @@ int Cgi::executeScript(void)
     {
         _pid = pid;
         if (_connection.request.method == "POST")
-            write(pipeFd[1], _connection.request.body.c_str(), _connection.request.body.size());
+        {
+            if (write(pipeFd[1], _connection.request.body.c_str(), _connection.request.body.size()) == -1)
+            {
+                closePipe(pipeFd);
+                handleError("Writting request body to Cgi Pipe Fd failed");
+                return -1;
+            }
+        }
         close(pipeFd[1]);
 
         _pipeFd = pipeFd[0];
         return pipeFd[0];
     }
+}
+
+void Cgi::handleError(std::string msg)
+{
+    _logger.log(ERROR, msg);
+    _connection.response.setStatusLine("500", "Internal Server Error");
 }
 
 void Cgi::setEnvVars(void)
@@ -105,7 +133,6 @@ void WebServer::parseQueryString(std::string& requestTarget, Request& request)
     if (pos != std::string::npos)
     {
         request.queryString = requestTarget.substr(pos + 1);
-        // std::cout << "Parsed query string: " << request.queryString << std::endl;
         requestTarget = requestTarget.substr(0, pos);
     }
 }

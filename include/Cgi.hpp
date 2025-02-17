@@ -4,6 +4,7 @@
 #include "Response.hpp"
 #include "Connection.hpp"
 #include "utils.hpp"
+#include "Logger.hpp"
 #include <vector>
 #include <sys/wait.h> //waitpid
 #include <string> //istringstream
@@ -22,8 +23,11 @@ class Cgi
     std::vector<char *> prepareEnvp(void);
     bool exited;
     time_t lastActivity;
+    void handleError(std::string msg);
+    void closePipe(int pipeFd[2]);
 
   private:
+    Logger _logger;
     std::string _scriptPath;
     std::vector<std::string> _envVars;
     std::string _rawOutputData;

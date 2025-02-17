@@ -371,9 +371,6 @@ void WebServer::run(void)
 
                     delete cgiInstance;
                 }
-                // else if (WIFSIGNALED(cgiStatus))
-                //     printf("killed by signal %d\n", WTERMSIG(cgiStatus));
-                // }
             }
             else if ((_eventsList[i].events & EPOLLIN) == EPOLLIN)
             {
@@ -394,7 +391,9 @@ void WebServer::run(void)
             {
                 Connection& connection = _connectionsMap[eventFd];
                 if (connection.response.isWaitingForCgiOutput == true)
+                {
                     continue;
+                }
                 if (connection.response.isReady == false)
                 {
                     fillResponse(connection);
@@ -674,11 +673,13 @@ void WebServer::fillResponse(Connection& connection)
         		std::string msg = "CGI script it not executable: " + cgiInstance->getScriptPath();
                 _logger.log(DEBUG, msg);
                 response.setStatusLine("403", "Forbidden");
+                delete cgiInstance;
                 return;
             }
             int pipeFd = cgiInstance->executeScript();
             if (pipeFd == -1)
     		{
+                delete cgiInstance;
                 return;
             }
 
@@ -688,35 +689,48 @@ void WebServer::fillResponse(Connection& connection)
             cgiEvent.data.fd = pipeFd;
             if (epoll_ctl(_epollFd, EPOLL_CTL_ADD, pipeFd, &cgiEvent) == -1)
             {
-                std::cerr << "Epoll add error: " << std::strerror(errno) << std::endl;
+        		std::string msg = "Failed to add do Epoll instance. Fd: " + itoa(pipeFd);
+                _logger.log(ERROR, msg);
+                response.setStatusLine("500", "Internal Server Error");
                 close(pipeFd);
+                delete cgiInstance;
                 return;
             }
             _logger.log(DEBUG,
                         "Cgi pipe Fd " + itoa(pipeFd) + " added to epoll instance - EPOLLIN");
             if (_cgiMap.count(pipeFd) != 0)
             {
-                int cgiPid = cgiInstance->getPid();
-                std::cerr << "Pipe fd already listed as cgi instance in server" << std::endl;
-                // kill(pid, SIGTERM);
-                // waitpid(pid, NULL, 0); // Reap zombie process
-                // epoll_ctl(epollFd, EPOLL_CTL_DEL, pipeFd[0], NULL);
-                kill(cgiPid, SIGTERM);  // First, try graceful termination
-                if (waitpid(cgiPid, NULL, WNOHANG) == 0) // If still running
-                {
-                    std::cerr << "Process " << cgiPid << " did not terminate, sending SIGKILL" << std::endl;
-                    kill(cgiPid, SIGKILL);  // Forcefully terminate
-                }
-                // Non-blocking cleanup to avoid zombies
-                //BUSY WAITNG -change using sigchild
-                while (waitpid(cgiPid, NULL, WNOHANG) > 0);
-                close(pipeFd);
+                std::string msg = "Pipe fd already listed as cgi instance in server. Fd: " + itoa(pipeFd);
+                _logger.log(ERROR, msg);
                 response.setStatusLine("500", "Internal Server Error");
+
+                int cgiPid = cgiInstance->getPid();
+                if (kill(cgiPid, SIGKILL) == 0)
+                {
+                    _logger.log(DEBUG, "Sent SIGKILL to CGI process: " + itoa(cgiPid));
+                }
+                else
+                {
+                    _logger.log(ERROR, "Failed to send SIGKILL to CGI process: " +
+                                        itoa(cgiPid) + " - " + std::strerror(errno));
+                }
+                while (waitpid(cgiPid, NULL, WNOHANG) > 0);
+                _logger.log(DEBUG, "Cgi process reaped: " + itoa(cgiPid));
+
+                if (epoll_ctl(_epollFd, EPOLL_CTL_DEL, pipeFd, &cgiEvent) == 0)
+                {
+                    _logger.log(DEBUG, "Pipe Fd " + itoa(pipeFd) +
+                                        " deleted from epoll instance");
+                }
+
+                close(pipeFd);
+                delete cgiInstance;
                 return;
             }
             _cgiMap[pipeFd] = cgiInstance;
+            _logger.log(DEBUG,
+                        "cgiInstance added to cgiMap. Pipe Fd: " + itoa(pipeFd));
             response.isWaitingForCgiOutput = true;
-            // buildCgiResponse(response, cgiHandler.getOutput());
         }
 
 		else if (request.method == "GET")
