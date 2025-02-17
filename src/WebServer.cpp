@@ -307,46 +307,45 @@ void WebServer::run(void)
                     _logger.log(DEBUG, "Partial cgi output received");
                     continue;
                 }
-                // if ((bytesRead = read(eventFd, buffer, sizeof(buffer))) > 0)
-                // {
-                //     rawOutputData.append(buffer, bytesRead);
-                // }
                 if (bytesRead == -1)
                 {
-                    // std::cout << " << perror("READ ERROR") << std::endl;
-                    perror("READ ERROR");
-                    connection.response.setStatusLine("500", "Internal Server Error");
-                    _logger.log(ERROR, "Connection closed due to cgi read error");
+                    _logger.log(ERROR, "Cgi output read failed");
                     epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL);
+                    _logger.log(DEBUG, "Pipe Fd " + itoa(eventFd) +
+                                        " deleted from epoll instance");
+
                     _cgiMap.erase(eventFd);
-                    _logger.log(DEBUG,
-                                "Cgi instance removed from cgiMap. Pipe Fd: " +
-                                    itoa(eventFd));
-                    // int cgiPid = _cgiMap[eventFd]->getPid();
-                    //send kill?
+                    _logger.log(DEBUG, "Cgi instance removed from cgiMap");
                     close(eventFd);
+
+                    connection.response.isWaitingForCgiOutput = false;
+                    connection.response.setStatusLine("500", "Internal Server Error");
+                    buildResponseBuffer(connection);
+                    connection.response.isReady = true;
+
+                    delete cgiInstance;
                     continue;
                 }
-                // else if (bytesRead == 0)
-                // {
-                //     std::cout << "CGI finished sendind data" << std::endl;
-                //     buildCgiResponse(connection.response, rawOutputData);
-                //     epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL);
-                //     _cgiMap.erase(eventFd);
-                //     int cgiPid = _cgiMap[eventFd]->getPid();
-                //     waitpid(cgiPid, NULL, WNOHANG); // If still running
-                //     close(eventFd);
-                //     buildResponseBuffer(connection);
-                //     connection.response.isReady = true;
-                // }
-                std::cout << "Webserver received rawOutput: " << cgiInstance->getOutput() << std::endl;
-                buildCgiResponse(connection.response, cgiInstance->getOutput());
-                buildResponseBuffer(connection);
-                epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL);
-                _cgiMap.erase(eventFd);
-                close(eventFd);
-                connection.response.isWaitingForCgiOutput = false;
-                connection.response.isReady = true;
+                else if (bytesRead == 0)
+                {
+                    _logger.log(INFO, "Webserver reached cgi output EOF");
+                    _logger.log(DEBUG, "Received rawOutput: " +
+                                        cgiInstance->getOutput());
+                    epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL);
+                    _logger.log(DEBUG, "Pipe Fd " + itoa(eventFd) +
+                                        " deleted from epoll instance");
+
+                    _cgiMap.erase(eventFd);
+                    _logger.log(DEBUG, "Cgi instance removed from cgiMap");
+                    close(eventFd);
+
+                    connection.response.isWaitingForCgiOutput = false;
+                    buildCgiResponse(connection.response, cgiInstance->getOutput());
+                    buildResponseBuffer(connection);
+                    connection.response.isReady = true;
+
+                    delete cgiInstance;
+                }
                 // else if (WIFSIGNALED(cgiStatus))
                 //     printf("killed by signal %d\n", WTERMSIG(cgiStatus));
                 // }
