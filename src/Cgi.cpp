@@ -41,7 +41,6 @@ int Cgi::executeScript(void)
         setEnvVars();
         std::vector<char *> envp = prepareEnvp();
 
-        sleep(11);
         execve("/usr/bin/python3", argv, envp.data());
         close(STDIN_FILENO);
         close(STDOUT_FILENO);
@@ -193,27 +192,32 @@ void WebServer::checkCgiTimeouts(void)
         Cgi* cgiInstance = it->second;
         if (now - cgiInstance->lastActivity > CGI_TIMEOUT)
         {
-            Connection& connection = cgiInstance->_connection;
+            // Connection& connection = cgiInstance->_connection;
             _logger.log(INFO, "Cgi Timeout. Pipe Fd: " +
                                 itoa(cgiInstance->getPipeFd()));
 
-            epoll_ctl(_epollFd, EPOLL_CTL_DEL, cgiInstance->getPipeFd(), NULL);
-            _logger.log(DEBUG, "Pipe Fd " + itoa(cgiInstance->getPipeFd()) +
-                                " deleted from epoll instance");
+            if (kill(cgiInstance->getPid(), SIGKILL) == 0)
+                _logger.log(DEBUG, "CGI process " + itoa(cgiInstance->getPid()) + " killed.");
+            else
+                _logger.log(ERROR, "Failed to kill CGI process " + itoa(cgiInstance->getPid()));
+            cgiInstance->lastActivity = time(NULL);
+            // epoll_ctl(_epollFd, EPOLL_CTL_DEL, cgiInstance->getPipeFd(), NULL);
+            // _logger.log(DEBUG, "Pipe Fd " + itoa(cgiInstance->getPipeFd()) +
+            //                     " deleted from epoll instance");
 
-            std::map<int, Cgi*>::iterator temp = it;
-            ++it;
-            _cgiMap.erase(temp);
-            _logger.log(DEBUG, "Cgi instance removed from cgiMap");
-            close(cgiInstance->getPipeFd());
+            // std::map<int, Cgi*>::iterator temp = it;
+            // ++it;
+            // _cgiMap.erase(temp);
+            // _logger.log(DEBUG, "Cgi instance removed from cgiMap");
+            // close(cgiInstance->getPipeFd());
 
-            connection.response.isWaitingForCgiOutput = false;
-            connection.response.setStatusLine("500", "Internal Server Error");
-            buildResponseBuffer(connection);
-            connection.response.isReady = true;
+            // connection.response.isWaitingForCgiOutput = false;
+            // connection.response.setStatusLine("500", "Internal Server Error");
+            // buildResponseBuffer(connection);
+            // connection.response.isReady = true;
 
-            delete cgiInstance;
-            continue;
+            // delete cgiInstance;
+            // continue;
         }
         ++it;
     }

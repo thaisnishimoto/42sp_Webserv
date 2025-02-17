@@ -238,7 +238,7 @@ void WebServer::run(void)
             throw std::runtime_error("Server Error: could not create socket");
         }
 
-        checkCgiTimeouts();
+
         for (int i = 0; i < fdsReady; i++)
         {
             int eventFd = _eventsList[i].data.fd;
@@ -274,7 +274,9 @@ void WebServer::run(void)
                 if (cgiInstance->exited == false)
                 {
                     if (waitpid(cgiPid, &cgiStatus, WNOHANG) == 0)
+                    {
                         continue;
+                    }
                     if (WIFEXITED(cgiStatus))
                     {
                         cgiInstance->exited = true;
@@ -283,6 +285,27 @@ void WebServer::run(void)
                     }
                     if (WEXITSTATUS(cgiStatus) != 0)
                     {
+                        epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL);
+                        _logger.log(DEBUG, "Pipe Fd " + itoa(eventFd) +
+                                            " deleted from epoll instance");
+
+                        _cgiMap.erase(eventFd);
+                        _logger.log(DEBUG, "Cgi instance removed from cgiMap");
+                        close(eventFd);
+
+                        connection.response.isWaitingForCgiOutput = false;
+                        connection.response.setStatusLine("500", "Internal Server Error");
+                        buildResponseBuffer(connection);
+                        connection.response.isReady = true;
+
+                        delete cgiInstance;
+                        continue;
+                    }
+                    if (WIFSIGNALED(cgiStatus))
+                    {
+                        std::string msg = "Cgi child process ended by signal: " + itoa(WTERMSIG(cgiStatus));
+                        _logger.log(DEBUG, msg);
+
                         epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL);
                         _logger.log(DEBUG, "Pipe Fd " + itoa(eventFd) +
                                             " deleted from epoll instance");
@@ -430,8 +453,8 @@ void WebServer::run(void)
 				}
             }
         }
-
         checkTimeouts();
+        checkCgiTimeouts();
     }
 
     cleanup();
