@@ -19,6 +19,7 @@ class Cgi
     int getPid(void) {return _pid;}
     void setEnvVars(void);
     std::vector<char *> prepareEnvp(void);
+    bool exited;
 
   private:
     std::string _scriptPath;

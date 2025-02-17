@@ -4,6 +4,7 @@
 Cgi::Cgi(Connection& connection) : _connection(connection)
 {
     _scriptPath = connection.request.localPathname; 
+    exited = false;
 }
 
 int Cgi::executeScript(void)
