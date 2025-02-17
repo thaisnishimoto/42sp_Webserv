@@ -189,7 +189,7 @@ void WebServer::startListening(void)
     }
 }
 
-void WebServer::checkTimeouts(void)
+void WebServer::checkConnectionTimeouts(void)
 {
     time_t now = time(NULL);
     std::map<int, Connection>::iterator it = _connectionsMap.begin();
@@ -238,6 +238,7 @@ void WebServer::run(void)
             throw std::runtime_error("Server Error: could not create socket");
         }
 
+        checkCgiTimeouts();
         for (int i = 0; i < fdsReady; i++)
         {
             int eventFd = _eventsList[i].data.fd;
@@ -305,6 +306,7 @@ void WebServer::run(void)
                 {
                     cgiInstance->getOutput().append(buffer, bytesRead);
                     _logger.log(DEBUG, "Partial cgi output received");
+                    cgiInstance->lastActivity = time(NULL);
                     continue;
                 }
                 if (bytesRead == -1)
@@ -667,6 +669,8 @@ void WebServer::fillResponse(Connection& connection)
                 close(pipeFd);
                 return;
             }
+            _logger.log(DEBUG,
+                        "Cgi pipe Fd " + itoa(pipeFd) + " added to epoll instance - EPOLLIN");
             if (_cgiMap.count(pipeFd) != 0)
             {
                 int cgiPid = cgiInstance->getPid();

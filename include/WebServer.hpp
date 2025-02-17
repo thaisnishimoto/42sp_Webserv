@@ -3,6 +3,7 @@
 
 #define MAX_EVENTS 10
 #define TIMEOUT 60
+#define CGI_TIMEOUT 10
 //4MB
 #define MAX_BODY_SIZE 4000000
 
@@ -63,7 +64,8 @@ class WebServer
     void modifyEventInterest(int epollFd, int eventFd, uint32_t event);
 
     int acceptConnection(int epollFd, int eventFd);
-    void checkTimeouts(void);
+    void checkConnectionTimeouts(void);
+    void checkCgiTimeouts(void);
 
     void parseRequest(Connection& connection);
     void parseRequestLine(std::string& connectionBuffer, Request& request);

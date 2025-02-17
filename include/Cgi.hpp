@@ -17,15 +17,18 @@ class Cgi
     std::string getScriptPath(void) {return _scriptPath;}
     std::string& getOutput(void) {return _rawOutputData;}
     int getPid(void) {return _pid;}
+    int getPipeFd(void) {return _pipeFd;}
     void setEnvVars(void);
     std::vector<char *> prepareEnvp(void);
     bool exited;
+    time_t lastActivity;
 
   private:
     std::string _scriptPath;
     std::vector<std::string> _envVars;
     std::string _rawOutputData;
     int _pid;
+    int _pipeFd;
 };
 
 #endif

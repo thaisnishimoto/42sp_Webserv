@@ -5,6 +5,7 @@ Cgi::Cgi(Connection& connection) : _connection(connection)
 {
     _scriptPath = connection.request.localPathname; 
     exited = false;
+    lastActivity = time(NULL);
 }
 
 int Cgi::executeScript(void)
@@ -40,6 +41,7 @@ int Cgi::executeScript(void)
         setEnvVars();
         std::vector<char *> envp = prepareEnvp();
 
+        sleep(11);
         execve("/usr/bin/python3", argv, envp.data());
         close(STDIN_FILENO);
         close(STDOUT_FILENO);
@@ -53,36 +55,10 @@ int Cgi::executeScript(void)
             write(pipeFd[1], _connection.request.body.c_str(), _connection.request.body.size());
         close(pipeFd[1]);
 
+        _pipeFd = pipeFd[0];
         return pipeFd[0];
     }
 }
-
-    // int status;
-    //TODO
-    //Change so server doesnt block here
-    // waitpid(pid, &status, 0);
-    // if (WIFEXITED(status) && WEXITSTATUS(status) != 0)
-    // {
-    //     //execve failed
-    //     std::cerr << "Execve error" << std::endl;
-    // }
-    // else
-    // {
-    //     char buffer[1024];
-    //     ssize_t bytesRead;
-    //     while ((bytesRead = read(pipeFd[0], buffer, sizeof(buffer))) > 0)
-    //     {
-    //         _rawOutputData.append(buffer, bytesRead);
-    //         std::cout << "cgi output: " << _rawOutputData << std::endl;
-    //     }
-    //     if (bytesRead == -1)
-    //     {
-    //         //read failed
-    //         std::cerr << "Execve error" << std::endl;
-    //     }
-    // }
-    // close(pipeFd[0]);
-// }
 
 void Cgi::setEnvVars(void)
 {
@@ -205,4 +181,40 @@ void WebServer::buildCgiResponse(Response& response, std::string& cgiOutput)
         response.setStatusLine("200", "OK");
     if (!response.body.empty() && response.headerFields.count("content-lenght") == 0)
         response.setHeader("content-length", itoa(response.body.size()));
+}
+
+void WebServer::checkCgiTimeouts(void)
+{
+    time_t now = time(NULL);
+    std::map<int, Cgi*>::iterator it = _cgiMap.begin();
+    std::map<int, Cgi*>::iterator ite = _cgiMap.end();
+    while (it != ite)
+    {
+        Cgi* cgiInstance = it->second;
+        if (now - cgiInstance->lastActivity > CGI_TIMEOUT)
+        {
+            Connection& connection = cgiInstance->_connection;
+            _logger.log(INFO, "Cgi Timeout. Pipe Fd: " +
+                                itoa(cgiInstance->getPipeFd()));
+
+            epoll_ctl(_epollFd, EPOLL_CTL_DEL, cgiInstance->getPipeFd(), NULL);
+            _logger.log(DEBUG, "Pipe Fd " + itoa(cgiInstance->getPipeFd()) +
+                                " deleted from epoll instance");
+
+            std::map<int, Cgi*>::iterator temp = it;
+            ++it;
+            _cgiMap.erase(temp);
+            _logger.log(DEBUG, "Cgi instance removed from cgiMap");
+            close(cgiInstance->getPipeFd());
+
+            connection.response.isWaitingForCgiOutput = false;
+            connection.response.setStatusLine("500", "Internal Server Error");
+            buildResponseBuffer(connection);
+            connection.response.isReady = true;
+
+            delete cgiInstance;
+            continue;
+        }
+        ++it;
+    }
 }
