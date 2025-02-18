@@ -61,7 +61,7 @@ int Cgi::executeScript(void)
         setEnvVars();
         std::vector<char *> envp = prepareEnvp();
 
-        execve("/usr/bin/python3", argv, envp.data());
+        execve(_interpreter.c_str(), argv, envp.data());
         closePipe(pipeFd);
         close(STDIN_FILENO);
         close(STDOUT_FILENO);
@@ -73,7 +73,8 @@ int Cgi::executeScript(void)
         _pid = pid;
         if (_connection.request.method == "POST")
         {
-            if (write(pipeFd[1], _connection.request.body.c_str(), _connection.request.body.size()) == -1)
+            int bytesWritten = write(pipeFd[1], _connection.request.body.c_str(), _connection.request.body.size());
+            if (bytesWritten == -1 || bytesWritten == 0)
             {
                 closePipe(pipeFd);
                 handleError("Writting request body to Cgi Pipe Fd failed");

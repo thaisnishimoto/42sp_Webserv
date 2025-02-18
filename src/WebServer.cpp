@@ -406,7 +406,7 @@ void WebServer::run(void)
                 int bytesSent;
                 std::string& buf = connection.responseBuffer;
                 bytesSent = send(eventFd, buf.c_str(), buf.size(), 0);
-                if (bytesSent == -1)
+                if (bytesSent == -1 || bytesSent == 0)
                 {
                     _logger.log(ERROR, "Connection closed due to send error");
                     epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL);
