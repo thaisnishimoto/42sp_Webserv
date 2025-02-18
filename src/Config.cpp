@@ -1,4 +1,7 @@
 #include "Config.hpp"
+#include "Location.hpp"
+#include "VirtualServer.hpp"
+#include <stdexcept>
 
 Config::Config(const std::string& configFile) : _logger(DEBUG2)
 {
@@ -10,7 +13,16 @@ Config::Config(const std::string& configFile) : _logger(DEBUG2)
                           "' was read with success!");
 }
 
-void Config::validateVirtualServer(VirtualServer& VirtualServer)
+bool Config::isValidLocation(Location& location)
+{
+   if (location.getRoot().empty())
+  {
+      return false;
+  }
+  return true;
+}
+
+void Config::validateVirtualServer(VirtualServer& virtualServer)
 {
     std::string errors;
     if (_hasHost == false || _hasPort == false)
@@ -22,14 +34,25 @@ void Config::validateVirtualServer(VirtualServer& VirtualServer)
         if (_hasPort == false)
             errors += "'port' ";
     }
-    if (VirtualServer.validateFallbackLocation("/") == NULL)
+    if (virtualServer.validateFallbackLocation("/") == NULL)
     {
         errors += "Missing required root location '/' ";
     }
     if (errors.empty() == false)
     {
-        _logger.log(ERROR, errors);
+        _logger.log(ERROR, errors + "in the virtual server: " + virtualServer.getServerName());
         throw std::runtime_error("");
+    }
+    std::map<std::string, Location>::iterator it = virtualServer._locations.begin();
+    std::map<std::string, Location>::iterator ite = virtualServer._locations.end();
+    while (it != ite)
+    {
+        if (isValidLocation(it->second) == false)
+        {
+            _logger.log(ERROR, "Missing required root directive in the location: " + it->first + " from virtual server: " + virtualServer.getServerName());
+            throw std::runtime_error("");
+        }
+        it++;
     }
 }
 

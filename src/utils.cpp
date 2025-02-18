@@ -73,7 +73,7 @@ bool removeLastChar(std::string& word, char delimiter)
 bool isValidExtension(const std::string& fileName, const std::string& extension)
 {
     std::string fileExtension;
-    size_t pos = fileName.find(".");
+    size_t pos = fileName.rfind(".");
 
     if (pos == std::string::npos || (fileName.length() <= extension.length()))
     {
