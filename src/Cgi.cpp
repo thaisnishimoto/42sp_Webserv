@@ -50,7 +50,14 @@ int Cgi::executeScript(void)
         }
         close(pipeFd[1]);
 
-        char* const argv[] = {const_cast<char *>("/usr/bin/python3"), const_cast<char *>(_scriptPath.c_str()), NULL};    
+        size_t extPos = _scriptPath.find_last_of('.');
+        std::string extension = _scriptPath.substr(extPos);
+        if (extension == ".py")
+            _interpreter = "/usr/bin/python3";
+        else
+            _interpreter = "/usr/bin/php";
+
+        char* const argv[] = {const_cast<char *>(_interpreter.c_str()), const_cast<char *>(_scriptPath.c_str()), NULL};    
         setEnvVars();
         std::vector<char *> envp = prepareEnvp();
 

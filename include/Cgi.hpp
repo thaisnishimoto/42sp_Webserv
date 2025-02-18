@@ -30,6 +30,7 @@ class Cgi
   private:
     Logger _logger;
     std::string _scriptPath;
+    std::string _interpreter;
     std::vector<std::string> _envVars;
     std::string _rawOutputData;
     int _pid;
