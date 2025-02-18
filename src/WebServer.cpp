@@ -189,7 +189,7 @@ void WebServer::startListening(void)
     }
 }
 
-void WebServer::checkTimeouts(void)
+void WebServer::checkConnectionTimeouts(void)
 {
     time_t now = time(NULL);
     std::map<int, Connection>::iterator it = _connectionsMap.begin();
@@ -238,6 +238,7 @@ void WebServer::run(void)
             throw std::runtime_error("Server Error: could not create socket");
         }
 
+
         for (int i = 0; i < fdsReady; i++)
         {
             int eventFd = _eventsList[i].data.fd;
@@ -262,6 +263,115 @@ void WebServer::run(void)
                     _connectionsMap.insert(pair);
                 }
             }
+            else if (_cgiMap.count(eventFd) == 1)
+            {
+                Cgi *cgiInstance = _cgiMap[eventFd];
+                Connection& connection = cgiInstance->_connection;
+
+                int cgiPid = cgiInstance->getPid();
+                int cgiStatus;
+
+                if (cgiInstance->exited == false)
+                {
+                    if (waitpid(cgiPid, &cgiStatus, WNOHANG) == 0)
+                    {
+                        continue;
+                    }
+                    if (WIFEXITED(cgiStatus))
+                    {
+                        cgiInstance->exited = true;
+                        std::string msg = "Cgi child process exit status: " + itoa(WEXITSTATUS(cgiStatus));
+                        _logger.log(DEBUG, msg);
+                    }
+                    if (WEXITSTATUS(cgiStatus) != 0)
+                    {
+                        epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL);
+                        _logger.log(DEBUG, "Pipe Fd " + itoa(eventFd) +
+                                            " deleted from epoll instance");
+
+                        _cgiMap.erase(eventFd);
+                        _logger.log(DEBUG, "Cgi instance removed from cgiMap");
+                        close(eventFd);
+
+                        connection.response.isWaitingForCgiOutput = false;
+                        connection.response.setStatusLine("500", "Internal Server Error");
+                        buildResponseBuffer(connection);
+                        connection.response.isReady = true;
+
+                        delete cgiInstance;
+                        continue;
+                    }
+                    if (WIFSIGNALED(cgiStatus))
+                    {
+                        std::string msg = "Cgi child process ended by signal: " + itoa(WTERMSIG(cgiStatus));
+                        _logger.log(DEBUG, msg);
+
+                        epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL);
+                        _logger.log(DEBUG, "Pipe Fd " + itoa(eventFd) +
+                                            " deleted from epoll instance");
+
+                        _cgiMap.erase(eventFd);
+                        _logger.log(DEBUG, "Cgi instance removed from cgiMap");
+                        close(eventFd);
+
+                        connection.response.isWaitingForCgiOutput = false;
+                        connection.response.setStatusLine("500", "Internal Server Error");
+                        buildResponseBuffer(connection);
+                        connection.response.isReady = true;
+
+                        delete cgiInstance;
+                        continue;
+                    }
+                }
+                char buffer[1024];
+                ssize_t bytesRead;
+                if ((bytesRead = read(eventFd, buffer, sizeof(buffer))) > 0)
+                {
+                    cgiInstance->getOutput().append(buffer, bytesRead);
+                    _logger.log(DEBUG, "Partial cgi output received");
+                    cgiInstance->lastActivity = time(NULL);
+                    continue;
+                }
+                if (bytesRead == -1)
+                {
+                    _logger.log(ERROR, "Cgi output read failed");
+                    epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL);
+                    _logger.log(DEBUG, "Pipe Fd " + itoa(eventFd) +
+                                        " deleted from epoll instance");
+
+                    _cgiMap.erase(eventFd);
+                    _logger.log(DEBUG, "Cgi instance removed from cgiMap");
+                    close(eventFd);
+
+                    connection.response.isWaitingForCgiOutput = false;
+                    connection.response.setStatusLine("500", "Internal Server Error");
+                    buildResponseBuffer(connection);
+                    connection.response.isReady = true;
+
+                    delete cgiInstance;
+                    continue;
+                }
+                else if (bytesRead == 0)
+                {
+                    _logger.log(INFO, "Webserver reached cgi output EOF");
+                    _logger.log(DEBUG, "Received rawOutput: " +
+                                        cgiInstance->getOutput());
+                    epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL);
+                    _logger.log(DEBUG, "Pipe Fd " + itoa(eventFd) +
+                                        " deleted from epoll instance");
+
+                    _cgiMap.erase(eventFd);
+                    _logger.log(DEBUG, "Cgi instance removed from cgiMap");
+                    close(eventFd);
+
+                    connection.response.isWaitingForCgiOutput = false;
+                    buildCgiResponse(connection.response, cgiInstance->getOutput());
+                    buildResponseBuffer(connection);
+                    connection.response.isReady = true;
+
+                    delete cgiInstance;
+                }
+            }
             else if ((_eventsList[i].events & EPOLLIN) == EPOLLIN)
             {
                 Connection& connection = _connectionsMap[eventFd];
@@ -280,9 +390,15 @@ void WebServer::run(void)
             else if ((_eventsList[i].events & EPOLLOUT) == EPOLLOUT)
             {
                 Connection& connection = _connectionsMap[eventFd];
+                if (connection.response.isWaitingForCgiOutput == true)
+                {
+                    continue;
+                }
                 if (connection.response.isReady == false)
                 {
                     fillResponse(connection);
+                    if (connection.response.isWaitingForCgiOutput == true)
+                        continue;
                     buildResponseBuffer(connection);
                     connection.response.isReady = true;
                 }
@@ -336,8 +452,8 @@ void WebServer::run(void)
 				}
             }
         }
-
-        checkTimeouts();
+        checkConnectionTimeouts();
+        checkCgiTimeouts();
     }
 
     cleanup();
@@ -463,6 +579,7 @@ void WebServer::fillResponse(Connection& connection)
 
 		Location& location = getLocation(connection.virtualServer,
 								   request.locationName);
+
 		if (location.getRedirect().empty() == false)
 		{
 			std::string msg = "Location redirects to ";
@@ -547,7 +664,76 @@ void WebServer::fillResponse(Connection& connection)
 
 		fillConnectionHeader(connection);
 
-		if (request.method == "GET")
+        if (isCgiRequest(connection, location))
+        {
+            _logger.log(INFO, "Handling CGI Request: " + connection.request.method); 
+            Cgi *cgiInstance = new Cgi(connection);
+         	if (access(cgiInstance->getScriptPath().c_str(), X_OK) != 0)
+    		{
+        		std::string msg = "CGI script it not executable: " + cgiInstance->getScriptPath();
+                _logger.log(DEBUG, msg);
+                response.setStatusLine("403", "Forbidden");
+                delete cgiInstance;
+                return;
+            }
+            int pipeFd = cgiInstance->executeScript();
+            if (pipeFd == -1)
+    		{
+                delete cgiInstance;
+                return;
+            }
+
+            struct epoll_event cgiEvent;
+            std::memset(&cgiEvent, 0, sizeof(cgiEvent));
+            cgiEvent.events = EPOLLIN;
+            cgiEvent.data.fd = pipeFd;
+            if (epoll_ctl(_epollFd, EPOLL_CTL_ADD, pipeFd, &cgiEvent) == -1)
+            {
+        		std::string msg = "Failed to add do Epoll instance. Fd: " + itoa(pipeFd);
+                _logger.log(ERROR, msg);
+                response.setStatusLine("500", "Internal Server Error");
+                close(pipeFd);
+                delete cgiInstance;
+                return;
+            }
+            _logger.log(DEBUG,
+                        "Cgi pipe Fd " + itoa(pipeFd) + " added to epoll instance - EPOLLIN");
+            if (_cgiMap.count(pipeFd) != 0)
+            {
+                std::string msg = "Pipe fd already listed as cgi instance in server. Fd: " + itoa(pipeFd);
+                _logger.log(ERROR, msg);
+                response.setStatusLine("500", "Internal Server Error");
+
+                int cgiPid = cgiInstance->getPid();
+                if (kill(cgiPid, SIGKILL) == 0)
+                {
+                    _logger.log(DEBUG, "Sent SIGKILL to CGI process: " + itoa(cgiPid));
+                }
+                else
+                {
+                    _logger.log(ERROR, "Failed to send SIGKILL to CGI process: " +
+                                        itoa(cgiPid) + " - " + std::strerror(errno));
+                }
+                while (waitpid(cgiPid, NULL, WNOHANG) > 0);
+                _logger.log(DEBUG, "Cgi process reaped: " + itoa(cgiPid));
+
+                if (epoll_ctl(_epollFd, EPOLL_CTL_DEL, pipeFd, &cgiEvent) == 0)
+                {
+                    _logger.log(DEBUG, "Pipe Fd " + itoa(pipeFd) +
+                                        " deleted from epoll instance");
+                }
+
+                close(pipeFd);
+                delete cgiInstance;
+                return;
+            }
+            _cgiMap[pipeFd] = cgiInstance;
+            _logger.log(DEBUG,
+                        "cgiInstance added to cgiMap. Pipe Fd: " + itoa(pipeFd));
+            response.isWaitingForCgiOutput = true;
+        }
+
+		else if (request.method == "GET")
 		{
 			handleGET(connection);
 		}
@@ -585,11 +771,18 @@ void WebServer::buildResponseBuffer(Connection& connection)
 	std::string& buffer = connection.responseBuffer;
 
 	//status line
-	buffer = "HTTP/1.1 ";
-	buffer += response.statusCode;
-	buffer += " ";
-	buffer += response.reasonPhrase;
-	buffer += "\r\n";
+    if (response.statusLine.empty())
+    {
+        buffer = "HTTP/1.1 ";
+        buffer += response.statusCode;
+        buffer += " ";
+        buffer += response.reasonPhrase;
+        buffer += "\r\n";
+    }
+    else
+    {
+        buffer = response.statusLine + "\r\n";
+    }
 
 	//headers
 	std::map<std::string, std::string>::iterator it = response.headerFields.begin();
@@ -805,10 +998,10 @@ void WebServer::parseTarget(std::string& requestLine, Request& request)
         request.badRequest = true;
         request.continueParsing = false;
     }
+    parseQueryString(requestTarget, request);
     request.target = requestTarget;
     _logger.log(DEBUG, "Parsed target: " + requestTarget);
-    requestLine =
-        requestLine.substr(requestTarget.size() + 1, std::string::npos);
+    requestLine = requestLine.substr(requestLine.find(" ") + 1, std::string::npos);
     // std::cout << "Remainder of request line: " << "'" << requestLine << "'"
     // << std::endl;
 }
@@ -1147,7 +1340,8 @@ int WebServer::acceptConnection(int epollFd, int eventFd)
     newFd = accept(eventFd, NULL, NULL);
     if (newFd != -1)
     {
-        setNonBlocking(newFd);
+        if (!setNonBlocking(newFd))
+            throw std::runtime_error("Server Error: Could not set fd to NonBlocking");
         target_event.events = EPOLLIN;
         target_event.data.fd = newFd;
         epoll_ctl(epollFd, EPOLL_CTL_ADD, newFd, &target_event);
@@ -1157,21 +1351,21 @@ int WebServer::acceptConnection(int epollFd, int eventFd)
     return newFd;
 }
 
-void WebServer::setNonBlocking(int fd)
-{
-    int flag = fcntl(fd, F_GETFL);
-    if (flag < 0)
-    {
-        std::cerr << std::strerror(errno) << std::endl;
-        throw std::runtime_error("Server Error: Could not recover fd flags");
-    }
-    if (fcntl(fd, F_SETFL, flag | O_NONBLOCK) < 0)
-    {
-        std::cerr << std::strerror(errno) << std::endl;
-        throw std::runtime_error(
-            "Server Error: Could not set fd to NonBlocking");
-    }
-}
+// void WebServer::setNonBlocking(int fd)
+// {
+//     int flag = fcntl(fd, F_GETFL);
+//     if (flag < 0)
+//     {
+//         std::cerr << std::strerror(errno) << std::endl;
+//         throw std::runtime_error("Server Error: Could not recover fd flags");
+//     }
+//     if (fcntl(fd, F_SETFL, flag | O_NONBLOCK) < 0)
+//     {
+//         std::cerr << std::strerror(errno) << std::endl;
+//         throw std::runtime_error(
+//             "Server Error: Could not set fd to NonBlocking");
+//     }
+// }
 
 static bool isTargetDir(Request& request)
 {
@@ -1472,4 +1666,109 @@ void WebServer::handleDELETE(Connection& connection)
 		response.headerFields["connection"] = "close";
 		return;
 	}
+}
+
+void WebServer::parseQueryString(std::string& requestTarget, Request& request)
+{
+    size_t pos = requestTarget.find('?');
+    if (pos != std::string::npos)
+    {
+        request.queryString = requestTarget.substr(pos + 1);
+        requestTarget = requestTarget.substr(0, pos);
+    }
+}
+
+bool WebServer::isCgiRequest(Connection& connection, Location& location)
+{
+    if (location.isCGI() == false)
+        return false;
+    
+    std::string target = connection.request.target;
+    if (target.find("/cgi-bin/") != 0) 
+        return false;
+
+    size_t extPos = target.find_last_of('.');
+    if (extPos != std::string::npos)
+    {
+        std::string extension = target.substr(extPos);
+        if (extension == ".php" || extension == ".py")
+            return true;
+    }
+    return false;
+}
+
+void WebServer::buildCgiResponse(Response& response, std::string& cgiOutput)
+{
+    size_t headerEnd = cgiOutput.find("\n\n");
+    if (headerEnd == std::string::npos)
+    {
+        response.setStatusLine("500", "Internal Server Error");
+        return;
+    }
+
+    std::string headers = cgiOutput.substr(0, headerEnd);
+    _logger.log(DEBUG, "CGI headers: " + headers);
+    response.body = cgiOutput.substr(headerEnd + 2);
+    _logger.log(DEBUG, "CGI body: " + response.body);
+
+    std::istringstream headerStream(headers);
+    std::string line;
+    while (std::getline(headerStream, line))
+    {
+        if (line.find("Status:") == 0)
+            response.statusLine = line.substr(8);
+        else
+        {
+            size_t colonPos = line.find(":");
+            if (colonPos != std::string::npos)
+            {
+                std::string fieldName = line.substr(0, colonPos);
+                tolower(fieldName);
+                fieldName = trim(fieldName, " ");
+
+                std::string fieldValue = line.substr(colonPos + 1);
+                fieldValue = trim(fieldValue, " ");
+
+                if (response.headerFields.count(fieldName) != 0)
+                {
+                    response.setStatusLine("500", "Internal Server Error");
+                    //maybe add body?
+                    return;
+                }
+                response.setHeader(fieldName, fieldValue);
+            }
+        }
+    }
+    if (!response.body.empty() && response.headerFields.count("content-type") == 0)
+    {
+        response.setStatusLine("500", "Internal Server Error");
+        return;
+    }
+    if (response.statusLine.empty())
+        response.setStatusLine("200", "OK");
+    if (!response.body.empty() && response.headerFields.count("content-lenght") == 0)
+        response.setHeader("content-length", itoa(response.body.size()));
+}
+
+void WebServer::checkCgiTimeouts(void)
+{
+    time_t now = time(NULL);
+    std::map<int, Cgi*>::iterator it = _cgiMap.begin();
+    std::map<int, Cgi*>::iterator ite = _cgiMap.end();
+    while (it != ite)
+    {
+        Cgi* cgiInstance = it->second;
+        if (now - cgiInstance->lastActivity > CGI_TIMEOUT)
+        {
+            _logger.log(INFO, "Cgi Timeout. Pipe Fd: " +
+                                itoa(cgiInstance->getPipeFd()));
+
+            if (kill(cgiInstance->getPid(), SIGKILL) == 0)
+                _logger.log(DEBUG, "CGI process " + itoa(cgiInstance->getPid()) + " killed.");
+            else
+                _logger.log(ERROR, "Failed to kill CGI process " + itoa(cgiInstance->getPid()));
+            cgiInstance->lastActivity = time(NULL);
+        }
+        ++it;
+    }
 }

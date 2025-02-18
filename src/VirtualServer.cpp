@@ -64,6 +64,15 @@ void VirtualServer::validateErrorCode(std::string& code)
     }
 }
 
+Location* VirtualServer::validateFallbackLocation(std::string resource)
+{
+    if (_locations.find(resource) != _locations.end())
+    {
+        return &_locations[resource];
+    }
+    return NULL;
+}
+
 void VirtualServer::setDefaultsErrorsPage()
 {
     std::string errorsRoot = "/errors/";

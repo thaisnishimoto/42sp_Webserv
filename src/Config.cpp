@@ -34,7 +34,7 @@ void Config::validateVirtualServer(VirtualServer& virtualServer)
         if (_hasPort == false)
             errors += "'port' ";
     }
-    if (virtualServer.getLocation("/") == NULL)
+    if (virtualServer.validateFallbackLocation("/") == NULL)
     {
         errors += "Missing required root location '/' ";
     }

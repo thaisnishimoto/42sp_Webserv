@@ -3,6 +3,7 @@
 
 #define MAX_EVENTS 10
 #define TIMEOUT 60
+#define CGI_TIMEOUT 10
 //4MB
 #define MAX_BODY_SIZE 4000000
 
@@ -10,13 +11,11 @@
 #include "Connection.hpp"
 #include "Logger.hpp"
 #include "VirtualServer.hpp"
+#include "Cgi.hpp"
 
-#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
-#include <cstring>
 #include <errno.h>
-#include <fcntl.h>
 #include <map>
 #include <netinet/in.h>
 #include <set>
@@ -35,6 +34,7 @@ class WebServer
     static bool _running;
     std::set<uint16_t> _ports;
     std::map<int, std::pair<uint32_t, uint16_t> > _socketsToPairs;
+    std::map<int, Cgi*> _cgiMap;
     std::map<std::pair<uint32_t, uint16_t>,
              std::map<std::string, VirtualServer> >
         _virtualServersLookup;
@@ -64,13 +64,14 @@ class WebServer
     void modifyEventInterest(int epollFd, int eventFd, uint32_t event);
 
     int acceptConnection(int epollFd, int eventFd);
-    void checkTimeouts(void);
-    void setNonBlocking(int fd);
+    void checkConnectionTimeouts(void);
+    void checkCgiTimeouts(void);
 
     void parseRequest(Connection& connection);
     void parseRequestLine(std::string& connectionBuffer, Request& request);
     void parseMethod(std::string& requestLine, Request& request);
     void parseTarget(std::string& requestLine, Request& request);
+    void parseQueryString(std::string& requestTarget, Request& request);
     void parseVersion(std::string& requestLine, Request& request);
 
     void parseHeader(std::string& connectionBuffer, Request& request);
@@ -87,6 +88,8 @@ class WebServer
 	void handlePOST(Connection& connection);
 	void handleDELETE(Connection& connection);
 
+    bool isCgiRequest(Connection& connection, Location& location);
+    void buildCgiResponse(Response& response, std::string& cgiOutput);
     int consumeNetworkBuffer(int connectionFd, std::string& connectionBuffer);
     void cleanup(void);
 };
