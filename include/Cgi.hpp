@@ -8,6 +8,7 @@
 #include <vector>
 #include <sys/wait.h> //waitpid
 #include <string> //istringstream
+#include <cstdlib> //exit
 
 class Cgi
 {

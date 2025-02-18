@@ -452,7 +452,7 @@ void WebServer::run(void)
 				}
             }
         }
-        checkTimeouts();
+        checkConnectionTimeouts();
         checkCgiTimeouts();
     }
 
@@ -1666,4 +1666,109 @@ void WebServer::handleDELETE(Connection& connection)
 		response.headerFields["connection"] = "close";
 		return;
 	}
+}
+
+void WebServer::parseQueryString(std::string& requestTarget, Request& request)
+{
+    size_t pos = requestTarget.find('?');
+    if (pos != std::string::npos)
+    {
+        request.queryString = requestTarget.substr(pos + 1);
+        requestTarget = requestTarget.substr(0, pos);
+    }
+}
+
+bool WebServer::isCgiRequest(Connection& connection, Location& location)
+{
+    if (location.isCGI() == false)
+        return false;
+    
+    std::string target = connection.request.target;
+    if (target.find("/cgi-bin/") != 0) 
+        return false;
+
+    size_t extPos = target.find_last_of('.');
+    if (extPos != std::string::npos)
+    {
+        std::string extension = target.substr(extPos);
+        if (extension == ".php" || extension == ".py")
+            return true;
+    }
+    return false;
+}
+
+void WebServer::buildCgiResponse(Response& response, std::string& cgiOutput)
+{
+    size_t headerEnd = cgiOutput.find("\n\n");
+    if (headerEnd == std::string::npos)
+    {
+        response.setStatusLine("500", "Internal Server Error");
+        return;
+    }
+
+    std::string headers = cgiOutput.substr(0, headerEnd);
+    _logger.log(DEBUG, "CGI headers: " + headers);
+    response.body = cgiOutput.substr(headerEnd + 2);
+    _logger.log(DEBUG, "CGI body: " + response.body);
+
+    std::istringstream headerStream(headers);
+    std::string line;
+    while (std::getline(headerStream, line))
+    {
+        if (line.find("Status:") == 0)
+            response.statusLine = line.substr(8);
+        else
+        {
+            size_t colonPos = line.find(":");
+            if (colonPos != std::string::npos)
+            {
+                std::string fieldName = line.substr(0, colonPos);
+                tolower(fieldName);
+                fieldName = trim(fieldName, " ");
+
+                std::string fieldValue = line.substr(colonPos + 1);
+                fieldValue = trim(fieldValue, " ");
+
+                if (response.headerFields.count(fieldName) != 0)
+                {
+                    response.setStatusLine("500", "Internal Server Error");
+                    //maybe add body?
+                    return;
+                }
+                response.setHeader(fieldName, fieldValue);
+            }
+        }
+    }
+    if (!response.body.empty() && response.headerFields.count("content-type") == 0)
+    {
+        response.setStatusLine("500", "Internal Server Error");
+        return;
+    }
+    if (response.statusLine.empty())
+        response.setStatusLine("200", "OK");
+    if (!response.body.empty() && response.headerFields.count("content-lenght") == 0)
+        response.setHeader("content-length", itoa(response.body.size()));
+}
+
+void WebServer::checkCgiTimeouts(void)
+{
+    time_t now = time(NULL);
+    std::map<int, Cgi*>::iterator it = _cgiMap.begin();
+    std::map<int, Cgi*>::iterator ite = _cgiMap.end();
+    while (it != ite)
+    {
+        Cgi* cgiInstance = it->second;
+        if (now - cgiInstance->lastActivity > CGI_TIMEOUT)
+        {
+            _logger.log(INFO, "Cgi Timeout. Pipe Fd: " +
+                                itoa(cgiInstance->getPipeFd()));
+
+            if (kill(cgiInstance->getPid(), SIGKILL) == 0)
+                _logger.log(DEBUG, "CGI process " + itoa(cgiInstance->getPid()) + " killed.");
+            else
+                _logger.log(ERROR, "Failed to kill CGI process " + itoa(cgiInstance->getPid()));
+            cgiInstance->lastActivity = time(NULL);
+        }
+        ++it;
+    }
 }
