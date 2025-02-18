@@ -64,6 +64,15 @@ void VirtualServer::validateErrorCode(std::string& code)
     }
 }
 
+Location* VirtualServer::validateFallbackLocation(std::string resource)
+{
+    if (_locations.find(resource) != _locations.end())
+    {
+        return &_locations[resource];
+    }
+    return NULL;
+}
+
 void VirtualServer::setDefaultsErrorsPage()
 {
     std::string errorsRoot = "/errors/";
@@ -165,7 +174,7 @@ void VirtualServer::setBodySize(std::string& directiveValue)
                                directiveValue + "'");
         throw std::runtime_error("");
     }
-    _clientMaxBodySize = static_cast<uint16_t>(tmpBodySize);
+    _clientMaxBodySize = static_cast<size_t>(tmpBodySize);
 }
 
 void VirtualServer::setLocation(std::pair<std::string, Location>& location)
@@ -179,7 +188,7 @@ uint32_t VirtualServer::getHost(void) const { return _host; }
 
 uint16_t VirtualServer::getPort(void) const { return _port; }
 
-int VirtualServer::getBodySize(void) const { return _clientMaxBodySize; }
+size_t VirtualServer::getBodySize(void) const { return _clientMaxBodySize; }
 
 Location* VirtualServer::getLocation(std::string resource)
 {

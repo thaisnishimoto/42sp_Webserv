@@ -13,4 +13,14 @@ Request::Request(void)
     contentLength = 0;
     isChunked = false;
 	isDir = false;
+    isCgi = false;
+}
+
+std::string Request::getHeader(std::string fieldName)
+{
+    if(headerFields.count(fieldName) == 1)
+    {
+        return headerFields[fieldName];
+    }
+    return "";
 }

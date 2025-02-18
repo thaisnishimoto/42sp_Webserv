@@ -1,0 +1,5 @@
+verbose
+url = localhost:8085/upload
+request = POST
+header = "Host: aoba"
+header = "Content-Type: text/html"

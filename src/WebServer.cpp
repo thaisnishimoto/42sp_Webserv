@@ -4,17 +4,22 @@
 #include <cstdlib>
 #include <fcntl.h>
 #include <netinet/in.h>
+#include <sys/epoll.h>
 #include <sys/socket.h>
 #include <dirent.h> //opendir
 #include <fstream> //ifstream
 
 static bool validateTransferEncoding(Request& request);
 static bool isTargetDir(Request& request);
-static void fillLocationName(Request& request);
+static void fillLocationName(Connection& connection);
 static void fillLocalPathname(Request& request, Location& location);
 static Location& getLocation(VirtualServer* vServer,
 							 std::string locationName);
 static std::string baseDirectoryListing(void);
+static std::string getDirName(Request& request);
+static void fillConnectionHeader(Connection& connection);
+
+bool WebServer::_running = true;
 
 WebServer::WebServer(const std::string& configFile)
     : _config(configFile), _logger(DEBUG2)
@@ -44,6 +49,19 @@ WebServer::~WebServer(void)
     // {
     // 	close(_epollFd);
     // }
+}
+
+void WebServer::signalHandler(int signum){
+    static Logger logger;
+    if (signum == SIGINT || signum == SIGTERM)
+    {
+        logger.log(INFO, "Received shutdown signal. Initiating graceful shutdown...");
+        _running = false;
+    }
+    else if (signum == SIGPIPE)
+    {
+        logger.log(DEBUG, "Received SIGPIPE signal - ignoring");
+    }
 }
 
 void WebServer::init(void)
@@ -171,7 +189,7 @@ void WebServer::startListening(void)
     }
 }
 
-void WebServer::checkTimeouts(void)
+void WebServer::checkConnectionTimeouts(void)
 {
     time_t now = time(NULL);
     std::map<int, Connection>::iterator it = _connectionsMap.begin();
@@ -197,22 +215,29 @@ void WebServer::checkTimeouts(void)
 
 void WebServer::run(void)
 {
+    //set signal handlers
+    signal(SIGINT, signalHandler);
+    signal(SIGTERM, signalHandler);
+    signal(SIGPIPE, signalHandler);
+
     int fdsReady;
     struct epoll_event _eventsList[MAX_EVENTS];
 
-    // std::cout << "Main loop initiating..." << std::endl;
     _logger.log(INFO, "webserv ready to receive connections");
-    while (true)
+    while (_running)
     {
         fdsReady = epoll_wait(_epollFd, _eventsList, MAX_EVENTS, 1000);
         if (fdsReady == -1)
         {
             // TODO: deal with EINTR. (when signal is received during wait)
+            if(_running == false)
+            {
+                break;
+            }
             std::cerr << std::strerror(errno) << std::endl;
             throw std::runtime_error("Server Error: could not create socket");
         }
 
-        checkTimeouts();
 
         for (int i = 0; i < fdsReady; i++)
         {
@@ -238,10 +263,123 @@ void WebServer::run(void)
                     _connectionsMap.insert(pair);
                 }
             }
+            else if (_cgiMap.count(eventFd) == 1)
+            {
+                Cgi *cgiInstance = _cgiMap[eventFd];
+                Connection& connection = cgiInstance->_connection;
+
+                int cgiPid = cgiInstance->getPid();
+                int cgiStatus;
+
+                if (cgiInstance->exited == false)
+                {
+                    if (waitpid(cgiPid, &cgiStatus, WNOHANG) == 0)
+                    {
+                        continue;
+                    }
+                    if (WIFEXITED(cgiStatus))
+                    {
+                        cgiInstance->exited = true;
+                        std::string msg = "Cgi child process exit status: " + itoa(WEXITSTATUS(cgiStatus));
+                        _logger.log(DEBUG, msg);
+                    }
+                    if (WEXITSTATUS(cgiStatus) != 0)
+                    {
+                        epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL);
+                        _logger.log(DEBUG, "Pipe Fd " + itoa(eventFd) +
+                                            " deleted from epoll instance");
+
+                        _cgiMap.erase(eventFd);
+                        _logger.log(DEBUG, "Cgi instance removed from cgiMap");
+                        close(eventFd);
+
+                        connection.response.isWaitingForCgiOutput = false;
+                        connection.response.setStatusLine("500", "Internal Server Error");
+                        buildResponseBuffer(connection);
+                        connection.response.isReady = true;
+
+                        delete cgiInstance;
+                        continue;
+                    }
+                    if (WIFSIGNALED(cgiStatus))
+                    {
+                        std::string msg = "Cgi child process ended by signal: " + itoa(WTERMSIG(cgiStatus));
+                        _logger.log(DEBUG, msg);
+
+                        epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL);
+                        _logger.log(DEBUG, "Pipe Fd " + itoa(eventFd) +
+                                            " deleted from epoll instance");
+
+                        _cgiMap.erase(eventFd);
+                        _logger.log(DEBUG, "Cgi instance removed from cgiMap");
+                        close(eventFd);
+
+                        connection.response.isWaitingForCgiOutput = false;
+                        connection.response.setStatusLine("500", "Internal Server Error");
+                        buildResponseBuffer(connection);
+                        connection.response.isReady = true;
+
+                        delete cgiInstance;
+                        continue;
+                    }
+                }
+                char buffer[1024];
+                ssize_t bytesRead;
+                if ((bytesRead = read(eventFd, buffer, sizeof(buffer))) > 0)
+                {
+                    cgiInstance->getOutput().append(buffer, bytesRead);
+                    _logger.log(DEBUG, "Partial cgi output received");
+                    cgiInstance->lastActivity = time(NULL);
+                    continue;
+                }
+                if (bytesRead == -1)
+                {
+                    _logger.log(ERROR, "Cgi output read failed");
+                    epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL);
+                    _logger.log(DEBUG, "Pipe Fd " + itoa(eventFd) +
+                                        " deleted from epoll instance");
+
+                    _cgiMap.erase(eventFd);
+                    _logger.log(DEBUG, "Cgi instance removed from cgiMap");
+                    close(eventFd);
+
+                    connection.response.isWaitingForCgiOutput = false;
+                    connection.response.setStatusLine("500", "Internal Server Error");
+                    buildResponseBuffer(connection);
+                    connection.response.isReady = true;
+
+                    delete cgiInstance;
+                    continue;
+                }
+                else if (bytesRead == 0)
+                {
+                    _logger.log(INFO, "Webserver reached cgi output EOF");
+                    _logger.log(DEBUG, "Received rawOutput: " +
+                                        cgiInstance->getOutput());
+                    epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL);
+                    _logger.log(DEBUG, "Pipe Fd " + itoa(eventFd) +
+                                        " deleted from epoll instance");
+
+                    _cgiMap.erase(eventFd);
+                    _logger.log(DEBUG, "Cgi instance removed from cgiMap");
+                    close(eventFd);
+
+                    connection.response.isWaitingForCgiOutput = false;
+                    buildCgiResponse(connection.response, cgiInstance->getOutput());
+                    buildResponseBuffer(connection);
+                    connection.response.isReady = true;
+
+                    delete cgiInstance;
+                }
+            }
             else if ((_eventsList[i].events & EPOLLIN) == EPOLLIN)
             {
                 Connection& connection = _connectionsMap[eventFd];
                 parseRequest(connection);
+				if (_connectionsMap.find(eventFd) == _connectionsMap.end())
+				{
+					continue;
+				}
                 if (connection.request.continueParsing == false)
                 {
                     modifyEventInterest(_epollFd, eventFd, EPOLLOUT);
@@ -252,9 +390,15 @@ void WebServer::run(void)
             else if ((_eventsList[i].events & EPOLLOUT) == EPOLLOUT)
             {
                 Connection& connection = _connectionsMap[eventFd];
+                if (connection.response.isWaitingForCgiOutput == true)
+                {
+                    continue;
+                }
                 if (connection.response.isReady == false)
                 {
                     fillResponse(connection);
+                    if (connection.response.isWaitingForCgiOutput == true)
+                        continue;
                     buildResponseBuffer(connection);
                     connection.response.isReady = true;
                 }
@@ -288,14 +432,57 @@ void WebServer::run(void)
                 _logger.log(INFO, "Response sent. Fd: " +
                                       itoa(connection.connectionFd));
 
-                epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL);
-                _logger.log(DEBUG, "Fd " + itoa(connection.connectionFd) +
-                                       " deleted from epoll instance");
-                _connectionsMap.erase(eventFd);
-                close(eventFd);
+				//connection management
+				if (connection.response.closeAfterSend == true)
+				{
+					epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL);
+					_logger.log(DEBUG, "Fd " + itoa(connection.connectionFd) +
+										   " deleted from epoll instance");
+					_connectionsMap.erase(eventFd);
+					close(eventFd);
+				}
+				else
+				{
+					modifyEventInterest(_epollFd, eventFd, EPOLLIN);
+					_logger.log(DEBUG, "Fd " + itoa(connection.connectionFd) +
+						" event of interest changed to EPOLLIN");
+					connection.virtualServer = NULL;
+					connection.request = Request();
+					connection.response = Response();
+				}
             }
         }
+        checkConnectionTimeouts();
+        checkCgiTimeouts();
     }
+
+    cleanup();
+}
+
+void WebServer::cleanup(void) {
+    _logger.log(DEBUG, "cleaning up...");
+    std::map<int, Connection>::iterator itConn = _connectionsMap.begin();
+    std::map<int, Connection>::iterator iteConn = _connectionsMap.end();
+
+    while (itConn != iteConn)
+    {
+        close(itConn->second.connectionFd);
+        itConn++;
+    }
+
+    std::map<int, std::pair<uint32_t, uint16_t> >::iterator itSock = _socketsToPairs.begin();
+    std::map<int, std::pair<uint32_t, uint16_t> >::iterator iteSock = _socketsToPairs.end();
+
+    while (itSock != iteSock)
+    {
+        close(itSock->first);
+        itSock++;
+    }
+    if (_epollFd > 0)
+    {
+        close(_epollFd);
+    }
+    _logger.log(INFO, "Server shutdown complete");
 }
 
 void WebServer::modifyEventInterest(int epollFd, int eventFd, uint32_t event)
@@ -307,11 +494,19 @@ void WebServer::modifyEventInterest(int epollFd, int eventFd, uint32_t event)
     epoll_ctl(epollFd, EPOLL_CTL_MOD, eventFd, &target_event);
 }
 
-static void fillLocationName(Request& request)
+static void fillLocationName(Connection& connection)
 {
-	std::string& target = request.target;
-	size_t lastSlashPos = target.rfind("/");
+	Request& request = connection.request;
+	VirtualServer* vServer = connection.virtualServer;
 
+	std::string& target = request.target;
+	if (vServer->_locations.find(target) != vServer->_locations.end())
+	{
+		request.locationName = vServer->_locations.find(target)->first;
+		return;
+	}
+
+	size_t lastSlashPos = target.rfind("/");
 	if (lastSlashPos != 0)
 	{
 		request.locationName = target.substr(0, lastSlashPos);
@@ -329,7 +524,8 @@ static void fillLocalPathname(Request& request, Location& location)
 		request.isDir = true;
 	}
 
-	if (request.isDir == true && location.isAutoIndex() == false)
+	if (request.isDir == true && location.isAutoIndex() == false &&
+		request.method == "GET")
 	{
 		request.localPathname = "." + location.getRoot();
 		request.localPathname += request.target;
@@ -346,36 +542,44 @@ void WebServer::fillResponse(Connection& connection)
 {
     Request& request = connection.request;
     Response& response = connection.response;
+
     if (request.badRequest == true)
     {
         response.statusCode = "400";
         response.reasonPhrase = "Bad Request";
+		response.closeAfterSend = true;
+		response.headerFields["connection"] = "close";
     }
     else if (validateTransferEncoding(request) == false)
     {
         response.statusCode = "501";
         response.reasonPhrase = "Not Implemented";
+		response.closeAfterSend = true;
+		response.headerFields["connection"] = "close";
     }
     else if (request.bodyTooLarge == true)
     {
         response.statusCode = "413";
         response.reasonPhrase = "Content Too Large";
+		response.headerFields["content-length"] = "0";
+		response.closeAfterSend = true;
+		response.headerFields["connection"] = "close";
     }
 	else if (_unimplementedMethods.find(request.method)
 		!= _unimplementedMethods.end())
 	{
         response.statusCode = "501";
         response.reasonPhrase = "Not Implemented";
+		response.closeAfterSend = true;
+		response.headerFields["connection"] = "close";
 	}
     else
     {
-		//TODO
-		//handle redirects here
-        identifyVirtualServer(connection);
-		fillLocationName(request);
+		fillLocationName(connection);
 
 		Location& location = getLocation(connection.virtualServer,
 								   request.locationName);
+
 		if (location.getRedirect().empty() == false)
 		{
 			std::string msg = "Location redirects to ";
@@ -384,7 +588,7 @@ void WebServer::fillResponse(Connection& connection)
 
 			response.statusCode = "301";
 			response.reasonPhrase = "Moved Permanently";
-			response.headerFields["location"] = location.getRedirect(); 
+			response.headerFields["location"] = location.getRedirect();
 			return;
 		}
 
@@ -392,7 +596,9 @@ void WebServer::fillResponse(Connection& connection)
 		{
 			response.statusCode = "405";
 			response.reasonPhrase = "Method Not Allowed";
-			response.headerFields["allow"] = location.getAllowedMethods(); 
+			response.headerFields["allow"] = location.getAllowedMethods();
+			response.closeAfterSend = true;
+			response.headerFields["connection"] = "close";
 			return;
 		}
 
@@ -405,6 +611,8 @@ void WebServer::fillResponse(Connection& connection)
 			_logger.log(DEBUG, msg);
 			response.statusCode = "404";
 			response.reasonPhrase = "Not Found";
+			response.closeAfterSend = true;
+			response.headerFields["connection"] = "close";
 
 			VirtualServer& vServer = *connection.virtualServer;
 			std::string errorFilePath = vServer.getErrorPage("404");
@@ -416,6 +624,8 @@ void WebServer::fillResponse(Connection& connection)
 				_logger.log(DEBUG, msg);
 				response.statusCode = "500";
 				response.reasonPhrase = "Internal Server Error";
+				response.closeAfterSend = true;
+				response.headerFields["connection"] = "close";
 				return;
 			}
 
@@ -436,6 +646,8 @@ void WebServer::fillResponse(Connection& connection)
 			_logger.log(DEBUG, msg);
 			response.statusCode = "403";
 			response.reasonPhrase = "Forbidden";
+			response.closeAfterSend = true;
+			response.headerFields["connection"] = "close";
 			return;
 		}
 		if (request.isDir == false &&
@@ -445,22 +657,112 @@ void WebServer::fillResponse(Connection& connection)
 			_logger.log(DEBUG, msg);
 			response.statusCode = "403";
 			response.reasonPhrase = "Forbidden";
+			response.closeAfterSend = true;
+			response.headerFields["connection"] = "close";
 			return;
 		}
 
-		if (request.method == "GET")
+		fillConnectionHeader(connection);
+
+        if (isCgiRequest(connection, location))
+        {
+            _logger.log(INFO, "Handling CGI Request: " + connection.request.method); 
+            Cgi *cgiInstance = new Cgi(connection);
+         	if (access(cgiInstance->getScriptPath().c_str(), X_OK) != 0)
+    		{
+        		std::string msg = "CGI script it not executable: " + cgiInstance->getScriptPath();
+                _logger.log(DEBUG, msg);
+                response.setStatusLine("403", "Forbidden");
+                delete cgiInstance;
+                return;
+            }
+            int pipeFd = cgiInstance->executeScript();
+            if (pipeFd == -1)
+    		{
+                delete cgiInstance;
+                return;
+            }
+
+            struct epoll_event cgiEvent;
+            std::memset(&cgiEvent, 0, sizeof(cgiEvent));
+            cgiEvent.events = EPOLLIN;
+            cgiEvent.data.fd = pipeFd;
+            if (epoll_ctl(_epollFd, EPOLL_CTL_ADD, pipeFd, &cgiEvent) == -1)
+            {
+        		std::string msg = "Failed to add do Epoll instance. Fd: " + itoa(pipeFd);
+                _logger.log(ERROR, msg);
+                response.setStatusLine("500", "Internal Server Error");
+                close(pipeFd);
+                delete cgiInstance;
+                return;
+            }
+            _logger.log(DEBUG,
+                        "Cgi pipe Fd " + itoa(pipeFd) + " added to epoll instance - EPOLLIN");
+            if (_cgiMap.count(pipeFd) != 0)
+            {
+                std::string msg = "Pipe fd already listed as cgi instance in server. Fd: " + itoa(pipeFd);
+                _logger.log(ERROR, msg);
+                response.setStatusLine("500", "Internal Server Error");
+
+                int cgiPid = cgiInstance->getPid();
+                if (kill(cgiPid, SIGKILL) == 0)
+                {
+                    _logger.log(DEBUG, "Sent SIGKILL to CGI process: " + itoa(cgiPid));
+                }
+                else
+                {
+                    _logger.log(ERROR, "Failed to send SIGKILL to CGI process: " +
+                                        itoa(cgiPid) + " - " + std::strerror(errno));
+                }
+                while (waitpid(cgiPid, NULL, WNOHANG) > 0);
+                _logger.log(DEBUG, "Cgi process reaped: " + itoa(cgiPid));
+
+                if (epoll_ctl(_epollFd, EPOLL_CTL_DEL, pipeFd, &cgiEvent) == 0)
+                {
+                    _logger.log(DEBUG, "Pipe Fd " + itoa(pipeFd) +
+                                        " deleted from epoll instance");
+                }
+
+                close(pipeFd);
+                delete cgiInstance;
+                return;
+            }
+            _cgiMap[pipeFd] = cgiInstance;
+            _logger.log(DEBUG,
+                        "cgiInstance added to cgiMap. Pipe Fd: " + itoa(pipeFd));
+            response.isWaitingForCgiOutput = true;
+        }
+
+		else if (request.method == "GET")
 		{
 			handleGET(connection);
 		}
 		else if (request.method == "POST")
 		{
-			//TODO
+			handlePOST(connection);
 		}
 		else if (request.method == "DELETE")
 		{
-			//TODO
+			handleDELETE(connection);
 		}
     }
+}
+
+static void fillConnectionHeader(Connection& connection)
+{
+	Request& request = connection.request;
+	Response& response = connection.response;
+
+	if (request.headerFields.count("connection") == 0)
+	{
+		return;
+	}
+	if (request.headerFields["connection"] == "close")
+	{
+		response.closeAfterSend = true;
+		response.headerFields["connection"] = "close";
+		return;
+	}
 }
 
 void WebServer::buildResponseBuffer(Connection& connection)
@@ -469,11 +771,18 @@ void WebServer::buildResponseBuffer(Connection& connection)
 	std::string& buffer = connection.responseBuffer;
 
 	//status line
-	buffer = "HTTP/1.1 ";
-	buffer += response.statusCode;
-	buffer += " ";
-	buffer += response.reasonPhrase;
-	buffer += "\r\n";
+    if (response.statusLine.empty())
+    {
+        buffer = "HTTP/1.1 ";
+        buffer += response.statusCode;
+        buffer += " ";
+        buffer += response.reasonPhrase;
+        buffer += "\r\n";
+    }
+    else
+    {
+        buffer = response.statusLine + "\r\n";
+    }
 
 	//headers
 	std::map<std::string, std::string>::iterator it = response.headerFields.begin();
@@ -517,10 +826,11 @@ void WebServer::identifyVirtualServer(Connection& connection)
 void WebServer::parseRequest(Connection& connection)
 {
     Request& request = connection.request;
-    if (consumeNetworkBuffer(connection.connectionFd, connection.buffer) == 0)
+    if (consumeNetworkBuffer(connection.connectionFd, connection.buffer) == 1)
     {
-        connection.lastActivity = time(NULL);
+		return;
     }
+    connection.lastActivity = time(NULL);
     if (request.parsedRequestLine == false)
     {
         parseRequestLine(connection.buffer, request);
@@ -533,7 +843,7 @@ void WebServer::parseRequest(Connection& connection)
     if (request.parsedHeader == true && request.continueParsing == true &&
         request.validatedHeader == false)
     {
-        validateHeader(request);
+        validateHeader(connection);
     }
     if (request.parsedHeader == true)
     {
@@ -552,15 +862,19 @@ void WebServer::parseRequest(Connection& connection)
     }
     if (request.validatedHeader == true)
     {
-        parseBody(connection.buffer, request);
+        parseBody(connection);
     }
 }
 
-void WebServer::parseBody(std::string& connectionBuffer, Request& request)
+void WebServer::parseBody(Connection& connection)
 {
+	std::string& connectionBuffer = connection.buffer;
+	Request& request = connection.request;
+
     if (request.isChunked == true &&
         connectionBuffer.find("0\r\n\r\n") != std::string::npos)
     {
+		size_t maxBodySize = connection.virtualServer->getBodySize() * 1024;
         while (true)
         {
             std::string hexSize = getNextLineRN(connectionBuffer);
@@ -579,7 +893,7 @@ void WebServer::parseBody(std::string& connectionBuffer, Request& request)
             if (iss >> std::hex >> decSize && iss.eof() != false)
             {
                 request.contentLength += static_cast<size_t>(decSize);
-                if (request.contentLength > CLIENT_MAX_BODY_SIZE)
+                if (request.contentLength > maxBodySize)
                 {
                     _logger.log(DEBUG, "Request body too large");
                     request.bodyTooLarge = true;
@@ -684,10 +998,10 @@ void WebServer::parseTarget(std::string& requestLine, Request& request)
         request.badRequest = true;
         request.continueParsing = false;
     }
+    parseQueryString(requestTarget, request);
     request.target = requestTarget;
     _logger.log(DEBUG, "Parsed target: " + requestTarget);
-    requestLine =
-        requestLine.substr(requestTarget.size() + 1, std::string::npos);
+    requestLine = requestLine.substr(requestLine.find(" ") + 1, std::string::npos);
     // std::cout << "Remainder of request line: " << "'" << requestLine << "'"
     // << std::endl;
 }
@@ -908,15 +1222,26 @@ static bool hasCLAndTEHeaders(Request& request)
     return result;
 }
 
-static bool validateContentLengthSize(Request& request)
+static bool validateContentLengthMaxSize(Request& request)
 {
+	if (request.contentLength > MAX_BODY_SIZE)
+	{
+		return false;
+	}
+	return true;
+}
+
+static bool validateContentLengthSize(Connection& connection)
+{
+	Request& request = connection.request;
     if (request.headerFields.count("content-length") == 0)
     {
         return true;
     }
     else
     {
-        if (request.contentLength > CLIENT_MAX_BODY_SIZE)
+		size_t maxBodySize = connection.virtualServer->getBodySize() * 1024;
+        if (request.contentLength > maxBodySize)
         {
             return false;
         }
@@ -927,8 +1252,10 @@ static bool validateContentLengthSize(Request& request)
     }
 }
 
-void WebServer::validateHeader(Request& request)
+void WebServer::validateHeader(Connection& connection)
 {
+	Request& request = connection.request;
+
     if (validateContentLength(request) == false)
     {
         request.badRequest = true;
@@ -959,11 +1286,18 @@ void WebServer::validateHeader(Request& request)
         request.continueParsing = false;
         return;
     }
-    if (validateContentLengthSize(request) == false)
+	identifyVirtualServer(connection);
+    if (validateContentLengthMaxSize(request) == false)
     {
-        _logger.log(DEBUG, "Request body too large");
+        _logger.log(DEBUG, "Content-Length greater than global limit. Webserv will not read body.");
         request.bodyTooLarge = true;
         request.continueParsing = false;
+		return;
+    }
+    if (validateContentLengthSize(connection) == false)
+    {
+        _logger.log(DEBUG, "Request body too large. Webserver will read and discard body");
+        request.bodyTooLarge = true;
     }
     request.validatedHeader = true;
 }
@@ -972,7 +1306,6 @@ int WebServer::consumeNetworkBuffer(int connectionFd,
                                     std::string& connectionBuffer)
 {
     char tempBuffer[5];
-
     ssize_t bytesRead = recv(connectionFd, tempBuffer, sizeof(tempBuffer), 0);
 
     if (bytesRead > 0)
@@ -980,18 +1313,19 @@ int WebServer::consumeNetworkBuffer(int connectionFd,
         connectionBuffer.append(tempBuffer, bytesRead);
         return 0;
     }
+	else if (bytesRead == 0)
+	{
+		return 1;
+	}
     else
     {
-        // TODO
-        // Erase connection from _connectionsMap
-        std::cout << "Connection closed by the client" << std::endl;
         _logger.log(INFO, "Fd " + itoa(connectionFd) +
                               ". Connection closed by client.");
         connectionBuffer.clear();
-        // _connectionBuffers.erase(connectionFd);
         epoll_ctl(_epollFd, EPOLL_CTL_DEL, connectionFd, NULL);
         _logger.log(DEBUG, "Fd " + itoa(connectionFd) +
                                " deleted from epoll instance");
+        _connectionsMap.erase(connectionFd);
         close(connectionFd);
         return 1;
     }
@@ -1006,7 +1340,8 @@ int WebServer::acceptConnection(int epollFd, int eventFd)
     newFd = accept(eventFd, NULL, NULL);
     if (newFd != -1)
     {
-        setNonBlocking(newFd);
+        if (!setNonBlocking(newFd))
+            throw std::runtime_error("Server Error: Could not set fd to NonBlocking");
         target_event.events = EPOLLIN;
         target_event.data.fd = newFd;
         epoll_ctl(epollFd, EPOLL_CTL_ADD, newFd, &target_event);
@@ -1016,21 +1351,21 @@ int WebServer::acceptConnection(int epollFd, int eventFd)
     return newFd;
 }
 
-void WebServer::setNonBlocking(int fd)
-{
-    int flag = fcntl(fd, F_GETFL);
-    if (flag < 0)
-    {
-        std::cerr << std::strerror(errno) << std::endl;
-        throw std::runtime_error("Server Error: Could not recover fd flags");
-    }
-    if (fcntl(fd, F_SETFL, flag | O_NONBLOCK) < 0)
-    {
-        std::cerr << std::strerror(errno) << std::endl;
-        throw std::runtime_error(
-            "Server Error: Could not set fd to NonBlocking");
-    }
-}
+// void WebServer::setNonBlocking(int fd)
+// {
+//     int flag = fcntl(fd, F_GETFL);
+//     if (flag < 0)
+//     {
+//         std::cerr << std::strerror(errno) << std::endl;
+//         throw std::runtime_error("Server Error: Could not recover fd flags");
+//     }
+//     if (fcntl(fd, F_SETFL, flag | O_NONBLOCK) < 0)
+//     {
+//         std::cerr << std::strerror(errno) << std::endl;
+//         throw std::runtime_error(
+//             "Server Error: Could not set fd to NonBlocking");
+//     }
+// }
 
 static bool isTargetDir(Request& request)
 {
@@ -1120,6 +1455,8 @@ void WebServer::handleGET(Connection& connection)
 		_logger.log(DEBUG, msg);
 		response.statusCode = "500";
 		response.reasonPhrase = "Internal Server Error";
+		response.closeAfterSend = true;
+		response.headerFields["connection"] = "close";
 		//add body?
 		return;
 	}
@@ -1155,4 +1492,283 @@ static std::string baseDirectoryListing(void)
 	content+="<body>\n";
 
 	return content;
+}
+
+void WebServer::handlePOST(Connection& connection)
+{
+	Request& request = connection.request;
+	Response& response = connection.response;
+	// Location& location = getLocation(connection.virtualServer, request.locationName);
+
+	//415
+	if (request.headerFields.count("content-type") == 0)
+	{
+		_logger.log(DEBUG, "No content-type header in POST request");
+		response.statusCode = "415";
+		response.reasonPhrase = "Unsupported Media Type";
+		response.headerFields["accept-post"] = "multipart/form-data";
+		response.headerFields["content-length"] = "0";
+		response.closeAfterSend = true;
+		response.headerFields["connection"] = "close";
+		return;
+	}
+
+	std::map<std::string, std::string>::iterator it =
+		request.headerFields.find("content-type");
+	std::string headerValue = it->second;
+	std::string contentType = headerValue.substr(0, headerValue.find(";"));
+	if (contentType != "multipart/form-data")
+	{
+		_logger.log(DEBUG, "content-type header in POST request is not accepted");
+		response.statusCode = "415";
+		response.reasonPhrase = "Unsupported Media Type";
+		response.headerFields["accept-post"] = "multipart/form-data";
+		response.headerFields["content-length"] = "0";
+		response.closeAfterSend = true;
+		response.headerFields["connection"] = "close";
+		return;
+	}
+
+	std::string delim = headerValue.substr(headerValue.find("=") + 1,
+										headerValue.find("\r\n"));
+	std::string msg = "Delimiter is " + delim;
+	_logger.log(DEBUG, msg);
+
+	//capture body
+	std::stringstream bodyStream(request.body);
+	std::string firstLine;
+	std::getline(bodyStream, firstLine);
+	if (firstLine == "--" + delim + "\r")
+	{
+		_logger.log(DEBUG, "Body first line matches with delim");
+		std::string secondLine;
+		std::getline(bodyStream, secondLine);
+		std::string fileName = secondLine.substr(secondLine.find("filename=") + 10);
+		fileName = fileName.substr(0, fileName.find("\"\r"));
+		_logger.log(DEBUG, "Captured filename.");
+
+		//try and create file
+		std::string localFileName = request.localPathname + "/" + fileName;
+		if (access(localFileName.c_str(), F_OK) == 0)
+		{
+			_logger.log(DEBUG, "A file with the same name already exists in webserv filesystem");
+			response.statusCode = "409";
+			response.reasonPhrase = "Conflict";
+			response.body = "File already exists in webserv filesystem";
+			response.headerFields["content-length"] = itoa(static_cast<int>(response.body.length()));
+			response.closeAfterSend = true;
+			response.headerFields["connection"] = "close";
+			return;
+		}
+
+		//substring to capture begining of content
+		std::string content;
+		content = request.body.substr(request.body.find("\r\n\r\n") + 4);
+		//read body until next boundary, effectively ignoring multiple fields forms
+
+		// std::string closeDelim = "\r\n--" + delim + "--";
+		std::string closeDelim = "\r\n--" + delim;
+		size_t closeDelimPos = content.find(closeDelim);
+		if (closeDelimPos == std::string::npos)
+		{
+			response.statusCode = "400";
+			response.reasonPhrase = "Bad Request";
+			response.closeAfterSend = true;
+			response.headerFields["connection"] = "close";
+			return;
+		}
+		content = content.substr(0, closeDelimPos);
+
+		std::ofstream out(localFileName.c_str());
+		if (out.is_open() == false)
+		{
+			response.statusCode = "500";
+			response.reasonPhrase = "Internal Server Error";
+			response.closeAfterSend = true;
+			response.headerFields["connection"] = "close";
+			return;
+		}
+
+		out << content;
+		out.close();
+		_logger.log(DEBUG, "File sucessfully uploaded");
+
+		response.statusCode = "201";
+		response.reasonPhrase = "Created";
+		response.body = "File uploaded correctly.";
+		response.headerFields["content-length"] = itoa(static_cast<int>(response.body.length()));
+		response.headerFields["location"] = request.locationName + "/" + fileName;
+		return;
+	}
+
+	response.statusCode = "400";
+	response.reasonPhrase = "Bad Request";
+	response.closeAfterSend = true;
+	response.headerFields["connection"] = "close";
+	return;
+}
+
+//./content/index.html
+//./content/filesDir/file1
+//substr(0, rfind())...
+
+static std::string getDirName(Request& request)
+{
+	std::string localPathname = request.localPathname;
+	std::string dir;
+	dir = request.localPathname.substr(0, localPathname.rfind("/"));
+	return dir;
+}
+
+void WebServer::handleDELETE(Connection& connection)
+{
+	Request& request = connection.request;
+	Response& response = connection.response;
+
+	if (request.isDir == true)
+	{
+			_logger.log(DEBUG, "Webserv does not allow DELETE request to directories");
+			response.statusCode = "403";
+			response.reasonPhrase = "Forbidden";
+			response.closeAfterSend = true;
+			response.headerFields["connection"] = "close";
+			return;
+	}
+
+	std::string localDir = getDirName(request);
+
+	if (access(localDir.c_str(), R_OK | W_OK | X_OK) == 0)
+	{
+		if (remove(request.localPathname.c_str()) != 0)
+		{
+			std::string msg = "WebServ could not delete" + request.localPathname + "for some reason.";
+			_logger.log(DEBUG, msg);
+			response.statusCode = "500";
+			response.reasonPhrase = "Internal Server Error";
+			response.closeAfterSend = true;
+			response.headerFields["connection"] = "close";
+			return;
+		}
+
+		std::string msg = "Deleting file " + request.localPathname;
+		_logger.log(DEBUG, msg);
+		response.statusCode = "204";
+		response.reasonPhrase = "No Content";
+		return;
+	}
+	else
+	{
+
+		_logger.log(DEBUG, "Webserv does not have rights to delete file");
+		response.statusCode = "403";
+		response.reasonPhrase = "Forbidden";
+		response.closeAfterSend = true;
+		response.headerFields["connection"] = "close";
+		return;
+	}
+}
+
+void WebServer::parseQueryString(std::string& requestTarget, Request& request)
+{
+    size_t pos = requestTarget.find('?');
+    if (pos != std::string::npos)
+    {
+        request.queryString = requestTarget.substr(pos + 1);
+        requestTarget = requestTarget.substr(0, pos);
+    }
+}
+
+bool WebServer::isCgiRequest(Connection& connection, Location& location)
+{
+    if (location.isCGI() == false)
+        return false;
+    
+    std::string target = connection.request.target;
+    if (target.find("/cgi-bin/") != 0) 
+        return false;
+
+    size_t extPos = target.find_last_of('.');
+    if (extPos != std::string::npos)
+    {
+        std::string extension = target.substr(extPos);
+        if (extension == ".php" || extension == ".py")
+            return true;
+    }
+    return false;
+}
+
+void WebServer::buildCgiResponse(Response& response, std::string& cgiOutput)
+{
+    size_t headerEnd = cgiOutput.find("\n\n");
+    if (headerEnd == std::string::npos)
+    {
+        response.setStatusLine("500", "Internal Server Error");
+        return;
+    }
+
+    std::string headers = cgiOutput.substr(0, headerEnd);
+    _logger.log(DEBUG, "CGI headers: " + headers);
+    response.body = cgiOutput.substr(headerEnd + 2);
+    _logger.log(DEBUG, "CGI body: " + response.body);
+
+    std::istringstream headerStream(headers);
+    std::string line;
+    while (std::getline(headerStream, line))
+    {
+        if (line.find("Status:") == 0)
+            response.statusLine = line.substr(8);
+        else
+        {
+            size_t colonPos = line.find(":");
+            if (colonPos != std::string::npos)
+            {
+                std::string fieldName = line.substr(0, colonPos);
+                tolower(fieldName);
+                fieldName = trim(fieldName, " ");
+
+                std::string fieldValue = line.substr(colonPos + 1);
+                fieldValue = trim(fieldValue, " ");
+
+                if (response.headerFields.count(fieldName) != 0)
+                {
+                    response.setStatusLine("500", "Internal Server Error");
+                    //maybe add body?
+                    return;
+                }
+                response.setHeader(fieldName, fieldValue);
+            }
+        }
+    }
+    if (!response.body.empty() && response.headerFields.count("content-type") == 0)
+    {
+        response.setStatusLine("500", "Internal Server Error");
+        return;
+    }
+    if (response.statusLine.empty())
+        response.setStatusLine("200", "OK");
+    if (!response.body.empty() && response.headerFields.count("content-lenght") == 0)
+        response.setHeader("content-length", itoa(response.body.size()));
+}
+
+void WebServer::checkCgiTimeouts(void)
+{
+    time_t now = time(NULL);
+    std::map<int, Cgi*>::iterator it = _cgiMap.begin();
+    std::map<int, Cgi*>::iterator ite = _cgiMap.end();
+    while (it != ite)
+    {
+        Cgi* cgiInstance = it->second;
+        if (now - cgiInstance->lastActivity > CGI_TIMEOUT)
+        {
+            _logger.log(INFO, "Cgi Timeout. Pipe Fd: " +
+                                itoa(cgiInstance->getPipeFd()));
+
+            if (kill(cgiInstance->getPid(), SIGKILL) == 0)
+                _logger.log(DEBUG, "CGI process " + itoa(cgiInstance->getPid()) + " killed.");
+            else
+                _logger.log(ERROR, "Failed to kill CGI process " + itoa(cgiInstance->getPid()));
+            cgiInstance->lastActivity = time(NULL);
+        }
+        ++it;
+    }
 }
