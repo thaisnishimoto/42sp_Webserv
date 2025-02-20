@@ -9,6 +9,7 @@
 #include <sys/wait.h> //waitpid
 #include <string> //istringstream
 #include <cstdlib> //exit
+#include <unistd.h>
 
 class Cgi
 {
