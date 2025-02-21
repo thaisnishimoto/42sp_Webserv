@@ -666,7 +666,7 @@ void WebServer::fillResponse(Connection& connection)
 
         if (isCgiRequest(connection, location))
         {
-            _logger.log(INFO, "Handling CGI Request: " + connection.request.method); 
+            _logger.log(INFO, "Handling CGI Request: " + connection.request.method);
             Cgi *cgiInstance = new Cgi(connection);
          	if (access(cgiInstance->getScriptPath().c_str(), X_OK) != 0)
     		{
@@ -802,17 +802,27 @@ void WebServer::buildResponseBuffer(Connection& connection)
     buffer += connection.response.body;
 }
 
-// WIP
+static std::string serverNameWithoutPort(const std::string& serverName)
+{
+    size_t pos = serverName.find(':');
+    if (pos != std::string::npos)
+    {
+		std::string newStr;
+		newStr = serverName.substr(0, pos);
+		newStr = trim(newStr, " \t");
+		return newStr;
+    }
+    return serverName;
+}
+
 void WebServer::identifyVirtualServer(Connection& connection)
 {
 	//based on connection info host:port
     std::pair<uint32_t, uint16_t> key(connection.host, connection.port);
     std::map<std::string, VirtualServer>& vServersFromHostPort =
         _virtualServersLookup[key];
-    std::string serverName = connection.request.headerFields["host"];
-    std::map<std::string, VirtualServer>::iterator it =
-        vServersFromHostPort.find(serverName);
-
+    std::string serverName = serverNameWithoutPort(connection.request.headerFields["host"]);
+    std::map<std::string, VirtualServer>::iterator it = vServersFromHostPort.find(serverName);
     if (it == vServersFromHostPort.end())
     {
         // set default
@@ -1682,9 +1692,9 @@ bool WebServer::isCgiRequest(Connection& connection, Location& location)
 {
     if (location.isCGI() == false)
         return false;
-    
+
     std::string target = connection.request.target;
-    if (target.find("/cgi-bin/") != 0) 
+    if (target.find("/cgi-bin/") != 0)
         return false;
 
     size_t extPos = target.find_last_of('.');
