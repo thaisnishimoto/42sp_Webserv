@@ -613,29 +613,31 @@ void WebServer::fillResponse(Connection& connection)
 			response.reasonPhrase = "Not Found";
 			response.closeAfterSend = true;
 			response.headerFields["connection"] = "close";
-
-			VirtualServer& vServer = *connection.virtualServer;
-			std::string errorFilePath = vServer.getErrorPage("404");
-			std::ifstream errorFile(errorFilePath.c_str());
-			if (errorFile.is_open() == false)
-			{
-				std::string msg = "WebServ could not open error page"
-					"for some reason.";
-				_logger.log(DEBUG, msg);
-				response.statusCode = "500";
-				response.reasonPhrase = "Internal Server Error";
-				response.closeAfterSend = true;
-				response.headerFields["connection"] = "close";
-				return;
-			}
-
-			std::istreambuf_iterator<char> it(errorFile);
-			std::istreambuf_iterator<char> ite;
-			std::string fileContent(it, ite);
-			errorFile.close();
-			response.body = fileContent;
-			response.headerFields["content-length"] = itoa(static_cast<int>(fileContent.length()));
 			return;
+
+			// VirtualServer& vServer = *connection.virtualServer;
+			// std::string errorFilePath = vServer.getErrorPage("404");
+			// std::cout << errorFilePath << std::endl;
+			// std::ifstream errorFile(errorFilePath.c_str());
+			// if (errorFile.is_open() == false)
+			// {
+			// 	std::string msg = "WebServ could not open error page"
+			// 		"for some reason.";
+			// 	_logger.log(DEBUG, msg);
+			// 	response.statusCode = "500";
+			// 	response.reasonPhrase = "Internal Server Error";
+			// 	response.closeAfterSend = true;
+			// 	response.headerFields["connection"] = "close";
+			// 	return;
+			// }
+
+			// std::istreambuf_iterator<char> it(errorFile);
+			// std::istreambuf_iterator<char> ite;
+			// std::string fileContent(it, ite);
+			// errorFile.close();
+			// response.body = fileContent;
+			// response.headerFields["content-length"] = itoa(static_cast<int>(fileContent.length()));
+			// return;
 		}
 
 		//403
@@ -784,22 +786,40 @@ void WebServer::buildResponseBuffer(Connection& connection)
         buffer = response.statusLine + "\r\n";
     }
 
+    //Page status code
+	if (response.statusCode != "200")
+	{
+        VirtualServer& vServer = *connection.virtualServer;
+		std::string errorFilePath = vServer.getErrorPage(response.statusCode);
+		std::ifstream errorFile(errorFilePath.c_str());
+		if (errorFile.is_open() == true)
+		{
+		  _logger.log(DEBUG, "Error page opened: " + errorFilePath + " Status code: " + response.statusCode);
+		  std::istreambuf_iterator<char> it(errorFile);
+			std::istreambuf_iterator<char> ite;
+    		std::string fileContent(it, ite);
+    		errorFile.close();
+    		response.body = fileContent;
+    		response.headerFields["content-length"] = itoa(static_cast<int>(fileContent.length()));
+		}
+	}
+
 	//headers
 	std::map<std::string, std::string>::iterator it = response.headerFields.begin();
 	std::map<std::string, std::string>::iterator ite = response.headerFields.end();
 
 	while (it != ite)
-	{
-		buffer += it->first;
-		buffer += ": ";
-		buffer += it->second;
-		buffer += "\r\n";
-		++it;
-	}
-	buffer += "\r\n";
+		{
+			buffer += it->first;
+			buffer += ": ";
+			buffer += it->second;
+			buffer += "\r\n";
+			++it;
+		}
 
 	//body
-    buffer += connection.response.body;
+	buffer += "\r\n";
+	buffer += connection.response.body;
 }
 
 static std::string serverNameWithoutPort(const std::string& serverName)

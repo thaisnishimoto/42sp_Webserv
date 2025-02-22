@@ -22,8 +22,17 @@ void VirtualServer::initReferences()
     _refAllowedServerDirective.insert("client_max_body_size");
 
     // Errors
+
+    _refAllowedErrorCode.insert("201");
+    _refAllowedErrorCode.insert("204");
+    _refAllowedErrorCode.insert("301");
     _refAllowedErrorCode.insert("400");
+    _refAllowedErrorCode.insert("403");
     _refAllowedErrorCode.insert("404");
+    _refAllowedErrorCode.insert("405");
+    _refAllowedErrorCode.insert("409");
+    _refAllowedErrorCode.insert("413");
+    _refAllowedErrorCode.insert("415");
     _refAllowedErrorCode.insert("500");
     _refAllowedErrorCode.insert("501");
 }
@@ -75,11 +84,19 @@ Location* VirtualServer::validateFallbackLocation(std::string resource)
 
 void VirtualServer::setDefaultsErrorsPage()
 {
-    std::string errorsRoot = "/errors/";
+    std::string errorsRoot = "html/";
+    _errorsPage["201"] = errorsRoot + "201.html";
+    _errorsPage["204"] = errorsRoot + "204.html";
+    _errorsPage["301"] = errorsRoot + "301.html";
     _errorsPage["400"] = errorsRoot + "400.html";
+    _errorsPage["403"] = errorsRoot + "403.html";
     _errorsPage["404"] = errorsRoot + "404.html";
-    _errorsPage["501"] = errorsRoot + "501.html";
+    _errorsPage["405"] = errorsRoot + "405.html";
+    _errorsPage["409"] = errorsRoot + "409.html";
+    _errorsPage["413"] = errorsRoot + "413.html";
+    _errorsPage["415"] = errorsRoot + "415.html";
     _errorsPage["500"] = errorsRoot + "500.html";
+    _errorsPage["501"] = errorsRoot + "501.html";
 }
 
 void VirtualServer::setErrorsPage(std::stringstream& serverBlock)
