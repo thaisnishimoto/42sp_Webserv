@@ -80,15 +80,16 @@ class WebServer
     std::string captureFieldValues(std::string& fieldLine);
     void validateHeader(Connection& connection);
 
-	void parseBody(Connection& connection);
+    void parseBody(Connection& connection);
 
     void buildResponseBuffer(Connection& connection);
     void fillResponse(Connection& connection);
-	void handleGET(Connection& connection);
-	void handlePOST(Connection& connection);
-	void handleDELETE(Connection& connection);
+    void handleGET(Connection& connection);
+    void handlePOST(Connection& connection);
+    void handleDELETE(Connection& connection);
 
     bool isCgiRequest(Connection& connection, Location& location);
+    void registerCgiPipe(int pipeFd, Cgi* cgiInstance, uint32_t events);
     void buildCgiResponse(Response& response, std::string& cgiOutput);
     int consumeNetworkBuffer(int connectionFd, std::string& connectionBuffer);
     void cleanup(void);
