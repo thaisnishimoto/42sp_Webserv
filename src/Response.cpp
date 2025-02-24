@@ -14,5 +14,7 @@ void Response::setHeader(std::string fieldName, std::string fieldValue)
 
 void Response::setStatusLine(std::string statusCode, std::string reasonPhrase)
 {
-    statusLine = "HTTP/1.1 " + statusCode + " " + reasonPhrase;
+    this->statusCode = statusCode;
+    this->reasonPhrase = reasonPhrase;
+    this->statusLine = "HTTP/1.1 " + statusCode + " " + reasonPhrase;
 }

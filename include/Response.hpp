@@ -16,7 +16,7 @@ class Response
     std::string reasonPhrase;
 
     bool isReady;
-	bool closeAfterSend;
+    bool closeAfterSend;
     bool isWaitingForCgiOutput;
 
     void setHeader(std::string fieldName, std::string fieldValue);
