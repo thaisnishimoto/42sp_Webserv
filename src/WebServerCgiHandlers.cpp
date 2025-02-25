@@ -25,6 +25,8 @@ void WebServer::buildCgiResponse(Response& response, std::string& cgiOutput)
     if (headerEnd == std::string::npos)
     {
         response.setStatusLine("500", "Internal Server Error");
+        response.closeAfterSend = true;
+		response.headerFields["connection"] = "close";
         return;
     }
 
@@ -54,7 +56,8 @@ void WebServer::buildCgiResponse(Response& response, std::string& cgiOutput)
                 if (response.headerFields.count(fieldName) != 0)
                 {
                     response.setStatusLine("500", "Internal Server Error");
-                    //maybe add body?
+                    response.closeAfterSend = true;
+                    response.headerFields["connection"] = "close";
                     return;
                 }
                 response.setHeader(fieldName, fieldValue);
@@ -64,6 +67,8 @@ void WebServer::buildCgiResponse(Response& response, std::string& cgiOutput)
     if (!response.body.empty() && response.headerFields.count("content-type") == 0)
     {
         response.setStatusLine("500", "Internal Server Error");
+        response.closeAfterSend = true;
+        response.headerFields["connection"] = "close";
         return;
     }
     if (response.statusLine.empty())
@@ -109,6 +114,8 @@ void WebServer::registerCgiPipe(int pipeFd, Cgi* cgiInstance, uint32_t events)
         _logger.log(ERROR, msg);
         //send kill to child process
         response.setStatusLine("500", "Internal Server Error");
+        response.closeAfterSend = true;
+		response.headerFields["connection"] = "close";
         close(pipeFd);
         delete cgiInstance;
         return;
@@ -121,6 +128,8 @@ void WebServer::registerCgiPipe(int pipeFd, Cgi* cgiInstance, uint32_t events)
         std::string msg = "Pipe fd already listed as cgi instance in server. Fd: " + itoa(pipeFd);
         _logger.log(ERROR, msg);
         response.setStatusLine("500", "Internal Server Error");
+        response.closeAfterSend = true;
+		response.headerFields["connection"] = "close";
 
         int cgiPid = cgiInstance->getPid();
         if (kill(cgiPid, SIGKILL) == 0)

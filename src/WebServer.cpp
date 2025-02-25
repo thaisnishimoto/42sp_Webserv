@@ -295,6 +295,8 @@ void WebServer::run(void)
 
                         connection.response.isWaitingForCgiOutput = false;
                         connection.response.setStatusLine("500", "Internal Server Error");
+                        connection.response.closeAfterSend = true;
+                        connection.response.headerFields["connection"] = "close";
                         buildResponseBuffer(connection);
                         connection.response.isReady = true;
 
@@ -316,6 +318,8 @@ void WebServer::run(void)
 
                         connection.response.isWaitingForCgiOutput = false;
                         connection.response.setStatusLine("500", "Internal Server Error");
+                        connection.response.closeAfterSend = true;
+                        connection.response.headerFields["connection"] = "close";
                         buildResponseBuffer(connection);
                         connection.response.isReady = true;
 
@@ -345,6 +349,8 @@ void WebServer::run(void)
 
                     connection.response.isWaitingForCgiOutput = false;
                     connection.response.setStatusLine("500", "Internal Server Error");
+                    connection.response.closeAfterSend = true;
+                    connection.response.headerFields["connection"] = "close";
                     buildResponseBuffer(connection);
                     connection.response.isReady = true;
 
@@ -683,6 +689,7 @@ void WebServer::fillResponse(Connection& connection)
                 return;
             }
             registerCgiPipe(pipeFd, cgiInstance, EPOLLIN);
+            return;
         }
 
 		else if (request.method == "GET")
