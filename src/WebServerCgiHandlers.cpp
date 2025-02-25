@@ -112,10 +112,23 @@ void WebServer::registerCgiPipe(int pipeFd, Cgi* cgiInstance, uint32_t events)
     {
         std::string msg = "Failed to add to Epoll instance. Fd: " + itoa(pipeFd);
         _logger.log(ERROR, msg);
-        //send kill to child process
         response.setStatusLine("500", "Internal Server Error");
         response.closeAfterSend = true;
 		response.headerFields["connection"] = "close";
+
+        int cgiPid = cgiInstance->getPid();
+        if (kill(cgiPid, SIGKILL) == 0)
+        {
+            _logger.log(DEBUG, "Sent SIGKILL to CGI process: " + itoa(cgiPid));
+        }
+        else
+        {
+            _logger.log(ERROR, "Failed to send SIGKILL to CGI process: " +
+                                itoa(cgiPid) + " - " + std::strerror(errno));
+        }
+        while (waitpid(cgiPid, NULL, WNOHANG) > 0);
+        _logger.log(DEBUG, "Cgi process reaped: " + itoa(cgiPid));
+
         close(pipeFd);
         delete cgiInstance;
         return;

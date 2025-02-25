@@ -62,7 +62,6 @@ int Cgi::executeScript(void)
         std::vector<char *> envp = prepareEnvp();
 
         execve(_interpreter.c_str(), argv, envp.data());
-        closePipe(pipeFd);
         close(STDIN_FILENO);
         close(STDOUT_FILENO);
         close(STDERR_FILENO);
@@ -78,6 +77,19 @@ int Cgi::executeScript(void)
             {
                 closePipe(pipeFd);
                 handleError("Writting request body to Cgi Pipe Fd failed");
+
+                if (kill(_pid, SIGKILL) == 0)
+                {
+                    _logger.log(DEBUG, "Sent SIGKILL to CGI process: " + itoa(_pid));
+                }
+                else
+                {
+                    _logger.log(ERROR, "Failed to send SIGKILL to CGI process: " +
+                                        itoa(_pid) + " - " + std::strerror(errno));
+                }
+                while (waitpid(_pid, NULL, WNOHANG) > 0);
+                _logger.log(DEBUG, "Cgi process reaped: " + itoa(_pid));
+
                 return -1;
             }
         }
@@ -92,6 +104,8 @@ void Cgi::handleError(std::string msg)
 {
     _logger.log(ERROR, msg);
     _connection.response.setStatusLine("500", "Internal Server Error");
+    _connection.response.closeAfterSend = true;
+	_connection.response.headerFields["connection"] = "close";
 }
 
 void Cgi::setEnvVars(void)
