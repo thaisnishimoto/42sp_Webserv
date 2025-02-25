@@ -44,7 +44,7 @@ $(NAME): $(OBJS)
 	$(CC) $(CPPFLAGS) $(INC) -o $(NAME) $(OBJS)
 
 fd: $(NAME)
-	valgrind --track-fds=yes ./$(NAME)
+	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --trace-children=yes --track-fds=yes ./$(NAME) $(ARG)
 
 run:
 	@make
