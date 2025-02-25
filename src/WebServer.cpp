@@ -263,6 +263,51 @@ void WebServer::run(void)
                     _connectionsMap.insert(pair);
                 }
             }
+            else if (_cgiMap.count(eventFd) == 1 && (_eventsList[i].events & EPOLLOUT) == EPOLLOUT)
+            {
+                Cgi *cgiInstance = _cgiMap[eventFd];
+                Connection& connection = cgiInstance->_connection;
+
+
+                std::string msg = "Writting request body to CGI Pipe Fd: " + itoa(eventFd);
+                _logger.log(DEBUG, msg);
+
+                int bytesWritten = write(eventFd, connection.request.body.c_str(), connection.request.body.size());
+                if (bytesWritten == -1 || bytesWritten == 0)
+                {
+                    // cgiInstance->closePipe();
+                    std::string msg = "Writting request body to CGI Pipe Fd failed";
+                    _logger.log(ERROR, msg);
+                    connection.response.setStatusLine("500", "Internal Server Error");
+                    connection.response.closeAfterSend = true;
+                    connection.response.headerFields["connection"] = "close";
+
+                    int cgiPid = cgiInstance->getPid();
+                    if (kill(cgiPid, SIGKILL) == 0)
+                    {
+                        _logger.log(DEBUG, "Sent SIGKILL to CGI process: " + itoa(cgiPid));
+                    }
+                    else
+                    {
+                        _logger.log(ERROR, "Failed to send SIGKILL to CGI process: " +
+                                            itoa(cgiPid) + " - " + std::strerror(errno));
+                    }
+                    // while (waitpid(cgiPid, NULL, WNOHANG) > 0);
+                    // _logger.log(DEBUG, "Cgi process reaped: " + itoa(cgiPid));
+                }
+                if (epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL) == 0)
+                {
+                    _logger.log(DEBUG, "Pipe Fd " + itoa(eventFd) +
+                                        " deleted from epoll instance");
+                }
+
+                _cgiMap.erase(eventFd);
+                _logger.log(DEBUG, "Cgi instance removed from cgiMap");
+                close(eventFd);
+
+                continue;
+            }
+            // else if (_cgiMap.count(eventFd) == 1 && (_eventsList[i].events & EPOLLIN) == EPOLLIN)
             else if (_cgiMap.count(eventFd) == 1)
             {
                 Cgi *cgiInstance = _cgiMap[eventFd];
@@ -682,13 +727,18 @@ void WebServer::fillResponse(Connection& connection)
                 delete cgiInstance;
                 return;
             }
-            int pipeFd = cgiInstance->executeScript();
-            if (pipeFd == -1)
+            int pipeReadFd = cgiInstance->executeScript();
+            if (pipeReadFd == -1)
     		{
                 delete cgiInstance;
                 return;
             }
-            registerCgiPipe(pipeFd, cgiInstance, EPOLLIN);
+            registerCgiPipe(pipeReadFd, cgiInstance, EPOLLIN);
+            if (connection.request.method == "POST")
+            {
+                int pipeWriteFd = cgiInstance->getPipeWritedFd();
+                registerCgiPipe(pipeWriteFd, cgiInstance, EPOLLOUT);
+            }
             return;
         }
 

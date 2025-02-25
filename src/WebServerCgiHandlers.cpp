@@ -88,7 +88,7 @@ void WebServer::checkCgiTimeouts(void)
         if (now - cgiInstance->lastActivity > CGI_TIMEOUT)
         {
             _logger.log(INFO, "Cgi Timeout. Pipe Fd: " +
-                                itoa(cgiInstance->getPipeFd()));
+                                itoa(cgiInstance->getPipeReadFd()));
 
             if (kill(cgiInstance->getPid(), SIGKILL) == 0)
                 _logger.log(DEBUG, "CGI process " + itoa(cgiInstance->getPid()) + " killed.");

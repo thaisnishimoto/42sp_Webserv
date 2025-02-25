@@ -20,13 +20,14 @@ class Cgi
     std::string getScriptPath(void) {return _scriptPath;}
     std::string& getOutput(void) {return _rawOutputData;}
     int getPid(void) {return _pid;}
-    int getPipeFd(void) {return _pipeFd;}
+    int getPipeReadFd(void) {return _pipeFd[0];}
+    int getPipeWritedFd(void) {return _pipeFd[1];}
     void setEnvVars(void);
     std::vector<char *> prepareEnvp(void);
     bool exited;
     time_t lastActivity;
     void handleError(std::string msg);
-    void closePipe(int pipeFd[2]);
+    void closePipe(void);
 
   private:
     Logger _logger;
@@ -35,7 +36,7 @@ class Cgi
     std::vector<std::string> _envVars;
     std::string _rawOutputData;
     int _pid;
-    int _pipeFd;
+    int _pipeFd[2];
 };
 
 #endif

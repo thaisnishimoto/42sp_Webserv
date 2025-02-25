@@ -7,23 +7,22 @@ Cgi::Cgi(Connection& connection) : _connection(connection)
     lastActivity = time(NULL);
 }
 
-void Cgi::closePipe(int pipeFd[2])
+void Cgi::closePipe(void)
 {
-    close(pipeFd[0]);
-    close(pipeFd[1]);
+    close(_pipeFd[0]);
+    close(_pipeFd[1]);
 }
 
 int Cgi::executeScript(void)
 {
-    int pipeFd[2];
-    if (pipe(pipeFd) == -1)
+    if (pipe(_pipeFd) == -1)
     {
         handleError("Cgi pipe failed");
         return -1;
     }
-    if (!setNonBlocking(pipeFd[0]) || !setNonBlocking(pipeFd[1]))
+    if (!setNonBlocking(_pipeFd[0]) || !setNonBlocking(_pipeFd[1]))
     {
-        closePipe(pipeFd);
+        closePipe();
         handleError("Could not sef pipe fd to non blocking");
         return -1;
     }
@@ -36,19 +35,19 @@ int Cgi::executeScript(void)
     
     if (pid == 0)
     {
-        if (dup2(pipeFd[0], STDIN_FILENO) == -1)
+        if (dup2(_pipeFd[0], STDIN_FILENO) == -1)
         {
-            closePipe(pipeFd);
+            closePipe();
             exit(EXIT_FAILURE);
         }
-        close(pipeFd[0]);
+        close(_pipeFd[0]);
 
-        if (dup2(pipeFd[1], STDOUT_FILENO) == -1)
+        if (dup2(_pipeFd[1], STDOUT_FILENO) == -1)
         {
-            closePipe(pipeFd);
+            closePipe();
             exit(EXIT_FAILURE);
         }
-        close(pipeFd[1]);
+        close(_pipeFd[1]);
 
         size_t extPos = _scriptPath.find_last_of('.');
         std::string extension = _scriptPath.substr(extPos);
@@ -70,33 +69,31 @@ int Cgi::executeScript(void)
     else
     {
         _pid = pid;
-        if (_connection.request.method == "POST")
+        if (_connection.request.method != "POST")
         {
-            int bytesWritten = write(pipeFd[1], _connection.request.body.c_str(), _connection.request.body.size());
-            if (bytesWritten == -1 || bytesWritten == 0)
-            {
-                closePipe(pipeFd);
-                handleError("Writting request body to Cgi Pipe Fd failed");
-
-                if (kill(_pid, SIGKILL) == 0)
-                {
-                    _logger.log(DEBUG, "Sent SIGKILL to CGI process: " + itoa(_pid));
-                }
-                else
-                {
-                    _logger.log(ERROR, "Failed to send SIGKILL to CGI process: " +
-                                        itoa(_pid) + " - " + std::strerror(errno));
-                }
-                while (waitpid(_pid, NULL, WNOHANG) > 0);
-                _logger.log(DEBUG, "Cgi process reaped: " + itoa(_pid));
-
-                return -1;
-            }
+            close(_pipeFd[1]);
         }
-        close(pipeFd[1]);
+            // int bytesWritten = write(pipeFd[1], _connection.request.body.c_str(), _connection.request.body.size());
+            // if (bytesWritten == -1 || bytesWritten == 0)
+            // {
+            //     closePipe(pipeFd);
+            //     handleError("Writting request body to Cgi Pipe Fd failed");
 
-        _pipeFd = pipeFd[0];
-        return pipeFd[0];
+            //     if (kill(_pid, SIGKILL) == 0)
+            //     {
+            //         _logger.log(DEBUG, "Sent SIGKILL to CGI process: " + itoa(_pid));
+            //     }
+            //     else
+            //     {
+            //         _logger.log(ERROR, "Failed to send SIGKILL to CGI process: " +
+            //                             itoa(_pid) + " - " + std::strerror(errno));
+            //     }
+            //     while (waitpid(_pid, NULL, WNOHANG) > 0);
+            //     _logger.log(DEBUG, "Cgi process reaped: " + itoa(_pid));
+
+            //     return -1;
+            // }
+        return _pipeFd[0];
     }
 }
 
