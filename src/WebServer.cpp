@@ -323,7 +323,7 @@ void WebServer::run(void)
                         continue;
                     }
                 }
-                char buffer[1024];
+                char buffer[4096];
                 ssize_t bytesRead;
                 if ((bytesRead = read(eventFd, buffer, sizeof(buffer))) > 0)
                 {
@@ -1315,7 +1315,7 @@ void WebServer::validateHeader(Connection& connection)
 int WebServer::consumeNetworkBuffer(int connectionFd,
                                     std::string& connectionBuffer)
 {
-    char tempBuffer[5];
+    char tempBuffer[4096];
     ssize_t bytesRead = recv(connectionFd, tempBuffer, sizeof(tempBuffer), 0);
 
     if (bytesRead > 0)
