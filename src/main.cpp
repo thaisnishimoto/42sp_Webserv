@@ -15,14 +15,8 @@ int main(int argc, char** argv)
         webServer.init();
         webServer.run();
     }
-    catch (std::exception& e)
-    {
-        std::cerr << e.what() << std::endl;
-        return 1;
-    }
     catch (...)
     {
-        std::cerr << "General error" << std::endl;
         return 1;
     }
     return 0;
