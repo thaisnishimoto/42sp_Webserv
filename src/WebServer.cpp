@@ -152,7 +152,7 @@ void WebServer::bindSocket(void)
         std::memset(&server_address, 0, sizeof(sockaddr_in));
         // this will change later
 		// TODO change next like to allow for differente IPs
-        server_address.sin_addr.s_addr = htonl(INADDR_ANY);
+        server_address.sin_addr.s_addr = htonl(it->second.first);
         server_address.sin_family = AF_INET;
         server_address.sin_port = htons(it->second.second);
 
