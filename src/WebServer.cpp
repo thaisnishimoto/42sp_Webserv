@@ -1344,6 +1344,7 @@ int WebServer::consumeNetworkBuffer(int connectionFd,
 int WebServer::acceptConnection(int epollFd, int eventFd)
 {
     struct epoll_event target_event;
+    std::memset(&target_event, 0, sizeof(target_event));
     int newFd;
     std::string buffer;
 
