@@ -9,7 +9,8 @@ int main(int argc, char** argv)
     {
         if (argc != 2)
         {
-            throw std::runtime_error("Wrong number of argument");
+			std::cerr <<"Usage: ./webserv config_file.conf" << std::endl;
+			return 1;
         }
         WebServer webServer(argv[1]);
         webServer.init();
