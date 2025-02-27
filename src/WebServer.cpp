@@ -263,6 +263,51 @@ void WebServer::run(void)
                     _connectionsMap.insert(pair);
                 }
             }
+            else if (_cgiMap.count(eventFd) == 1 && (_eventsList[i].events & EPOLLOUT) == EPOLLOUT)
+            {
+                Cgi *cgiInstance = _cgiMap[eventFd];
+                Connection& connection = cgiInstance->_connection;
+
+
+                std::string msg = "Writting request body to CGI Pipe Fd: " + itoa(eventFd);
+                _logger.log(DEBUG, msg);
+
+                int bytesWritten = write(eventFd, connection.request.body.c_str(), connection.request.body.size());
+                if (bytesWritten == -1 || bytesWritten == 0)
+                {
+                    // cgiInstance->closePipe();
+                    std::string msg = "Writting request body to CGI Pipe Fd failed";
+                    _logger.log(ERROR, msg);
+                    connection.response.setStatusLine("500", "Internal Server Error");
+                    connection.response.closeAfterSend = true;
+                    connection.response.headerFields["connection"] = "close";
+
+                    int cgiPid = cgiInstance->getPid();
+                    if (kill(cgiPid, SIGKILL) == 0)
+                    {
+                        _logger.log(DEBUG, "Sent SIGKILL to CGI process: " + itoa(cgiPid));
+                    }
+                    else
+                    {
+                        _logger.log(ERROR, "Failed to send SIGKILL to CGI process: " +
+                                            itoa(cgiPid) + " - " + std::strerror(errno));
+                    }
+                    // while (waitpid(cgiPid, NULL, WNOHANG) > 0);
+                    // _logger.log(DEBUG, "Cgi process reaped: " + itoa(cgiPid));
+                }
+                if (epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL) == 0)
+                {
+                    _logger.log(DEBUG, "Pipe Fd " + itoa(eventFd) +
+                                        " deleted from epoll instance");
+                }
+
+                _cgiMap.erase(eventFd);
+                _logger.log(DEBUG, "Cgi instance removed from cgiMap");
+                close(eventFd);
+
+                continue;
+            }
+            // else if (_cgiMap.count(eventFd) == 1 && (_eventsList[i].events & EPOLLIN) == EPOLLIN)
             else if (_cgiMap.count(eventFd) == 1)
             {
                 Cgi *cgiInstance = _cgiMap[eventFd];
@@ -295,6 +340,8 @@ void WebServer::run(void)
 
                         connection.response.isWaitingForCgiOutput = false;
                         connection.response.setStatusLine("500", "Internal Server Error");
+                        connection.response.closeAfterSend = true;
+                        connection.response.headerFields["connection"] = "close";
                         buildResponseBuffer(connection);
                         connection.response.isReady = true;
 
@@ -316,6 +363,8 @@ void WebServer::run(void)
 
                         connection.response.isWaitingForCgiOutput = false;
                         connection.response.setStatusLine("500", "Internal Server Error");
+                        connection.response.closeAfterSend = true;
+                        connection.response.headerFields["connection"] = "close";
                         buildResponseBuffer(connection);
                         connection.response.isReady = true;
 
@@ -345,6 +394,8 @@ void WebServer::run(void)
 
                     connection.response.isWaitingForCgiOutput = false;
                     connection.response.setStatusLine("500", "Internal Server Error");
+                    connection.response.closeAfterSend = true;
+                    connection.response.headerFields["connection"] = "close";
                     buildResponseBuffer(connection);
                     connection.response.isReady = true;
 
@@ -658,61 +709,19 @@ void WebServer::fillResponse(Connection& connection)
                 delete cgiInstance;
                 return;
             }
-            int pipeFd = cgiInstance->executeScript();
-            if (pipeFd == -1)
+            int pipeReadFd = cgiInstance->executeScript();
+            if (pipeReadFd == -1)
     		{
                 delete cgiInstance;
                 return;
             }
-
-            struct epoll_event cgiEvent;
-            std::memset(&cgiEvent, 0, sizeof(cgiEvent));
-            cgiEvent.events = EPOLLIN;
-            cgiEvent.data.fd = pipeFd;
-            if (epoll_ctl(_epollFd, EPOLL_CTL_ADD, pipeFd, &cgiEvent) == -1)
+            registerCgiPipe(pipeReadFd, cgiInstance, EPOLLIN);
+            if (connection.request.method == "POST")
             {
-        		std::string msg = "Failed to add do Epoll instance. Fd: " + itoa(pipeFd);
-                _logger.log(ERROR, msg);
-                response.setStatusLine("500", "Internal Server Error");
-                close(pipeFd);
-                delete cgiInstance;
-                return;
+                int pipeWriteFd = cgiInstance->getPipeWritedFd();
+                registerCgiPipe(pipeWriteFd, cgiInstance, EPOLLOUT);
             }
-            _logger.log(DEBUG,
-                        "Cgi pipe Fd " + itoa(pipeFd) + " added to epoll instance - EPOLLIN");
-            if (_cgiMap.count(pipeFd) != 0)
-            {
-                std::string msg = "Pipe fd already listed as cgi instance in server. Fd: " + itoa(pipeFd);
-                _logger.log(ERROR, msg);
-                response.setStatusLine("500", "Internal Server Error");
-
-                int cgiPid = cgiInstance->getPid();
-                if (kill(cgiPid, SIGKILL) == 0)
-                {
-                    _logger.log(DEBUG, "Sent SIGKILL to CGI process: " + itoa(cgiPid));
-                }
-                else
-                {
-                    _logger.log(ERROR, "Failed to send SIGKILL to CGI process: " +
-                                        itoa(cgiPid) + " - " + std::strerror(errno));
-                }
-                while (waitpid(cgiPid, NULL, WNOHANG) > 0);
-                _logger.log(DEBUG, "Cgi process reaped: " + itoa(cgiPid));
-
-                if (epoll_ctl(_epollFd, EPOLL_CTL_DEL, pipeFd, &cgiEvent) == 0)
-                {
-                    _logger.log(DEBUG, "Pipe Fd " + itoa(pipeFd) +
-                                        " deleted from epoll instance");
-                }
-
-                close(pipeFd);
-                delete cgiInstance;
-                return;
-            }
-            _cgiMap[pipeFd] = cgiInstance;
-            _logger.log(DEBUG,
-                        "cgiInstance added to cgiMap. Pipe Fd: " + itoa(pipeFd));
-            response.isWaitingForCgiOutput = true;
+            return;
         }
 
 		else if (request.method == "GET")
@@ -1690,100 +1699,5 @@ void WebServer::parseQueryString(std::string& requestTarget, Request& request)
     {
         request.queryString = requestTarget.substr(pos + 1);
         requestTarget = requestTarget.substr(0, pos);
-    }
-}
-
-bool WebServer::isCgiRequest(Connection& connection, Location& location)
-{
-    if (location.isCGI() == false)
-        return false;
-
-    std::string target = connection.request.target;
-    if (target.find("/cgi-bin/") != 0)
-        return false;
-
-    size_t extPos = target.find_last_of('.');
-    if (extPos != std::string::npos)
-    {
-        std::string extension = target.substr(extPos);
-        if (extension == ".php" || extension == ".py")
-            return true;
-    }
-    return false;
-}
-
-void WebServer::buildCgiResponse(Response& response, std::string& cgiOutput)
-{
-    size_t headerEnd = cgiOutput.find("\n\n");
-    if (headerEnd == std::string::npos)
-    {
-        response.setStatusLine("500", "Internal Server Error");
-        return;
-    }
-
-    std::string headers = cgiOutput.substr(0, headerEnd);
-    _logger.log(DEBUG, "CGI headers: " + headers);
-    response.body = cgiOutput.substr(headerEnd + 2);
-    _logger.log(DEBUG, "CGI body: " + response.body);
-
-    std::istringstream headerStream(headers);
-    std::string line;
-    while (std::getline(headerStream, line))
-    {
-        if (line.find("Status:") == 0)
-            response.statusLine = line.substr(8);
-        else
-        {
-            size_t colonPos = line.find(":");
-            if (colonPos != std::string::npos)
-            {
-                std::string fieldName = line.substr(0, colonPos);
-                tolower(fieldName);
-                fieldName = trim(fieldName, " ");
-
-                std::string fieldValue = line.substr(colonPos + 1);
-                fieldValue = trim(fieldValue, " ");
-
-                if (response.headerFields.count(fieldName) != 0)
-                {
-                    response.setStatusLine("500", "Internal Server Error");
-                    //maybe add body?
-                    return;
-                }
-                response.setHeader(fieldName, fieldValue);
-            }
-        }
-    }
-    if (!response.body.empty() && response.headerFields.count("content-type") == 0)
-    {
-        response.setStatusLine("500", "Internal Server Error");
-        return;
-    }
-    if (response.statusLine.empty())
-        response.setStatusLine("200", "OK");
-    if (!response.body.empty() && response.headerFields.count("content-lenght") == 0)
-        response.setHeader("content-length", itoa(response.body.size()));
-}
-
-void WebServer::checkCgiTimeouts(void)
-{
-    time_t now = time(NULL);
-    std::map<int, Cgi*>::iterator it = _cgiMap.begin();
-    std::map<int, Cgi*>::iterator ite = _cgiMap.end();
-    while (it != ite)
-    {
-        Cgi* cgiInstance = it->second;
-        if (now - cgiInstance->lastActivity > CGI_TIMEOUT)
-        {
-            _logger.log(INFO, "Cgi Timeout. Pipe Fd: " +
-                                itoa(cgiInstance->getPipeFd()));
-
-            if (kill(cgiInstance->getPid(), SIGKILL) == 0)
-                _logger.log(DEBUG, "CGI process " + itoa(cgiInstance->getPid()) + " killed.");
-            else
-                _logger.log(ERROR, "Failed to kill CGI process " + itoa(cgiInstance->getPid()));
-            cgiInstance->lastActivity = time(NULL);
-        }
-        ++it;
     }
 }
