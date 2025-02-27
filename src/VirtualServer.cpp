@@ -23,7 +23,12 @@ void VirtualServer::initReferences()
 
     // Errors
     _refAllowedErrorCode.insert("400");
+    _refAllowedErrorCode.insert("403");
     _refAllowedErrorCode.insert("404");
+    _refAllowedErrorCode.insert("405");
+    _refAllowedErrorCode.insert("409");
+    _refAllowedErrorCode.insert("413");
+    _refAllowedErrorCode.insert("415");
     _refAllowedErrorCode.insert("500");
     _refAllowedErrorCode.insert("501");
 }
@@ -75,11 +80,16 @@ Location* VirtualServer::validateFallbackLocation(std::string resource)
 
 void VirtualServer::setDefaultsErrorsPage()
 {
-    std::string errorsRoot = "/errors/";
-    _errorsPage["400"] = errorsRoot + "400.html";
-    _errorsPage["404"] = errorsRoot + "404.html";
-    _errorsPage["501"] = errorsRoot + "501.html";
-    _errorsPage["500"] = errorsRoot + "500.html";
+    std::string errorPageRoot = "errors/";
+    _errorPages["400"] = errorPageRoot + "400.html";
+    _errorPages["403"] = errorPageRoot + "403.html";
+    _errorPages["404"] = errorPageRoot + "404.html";
+    _errorPages["405"] = errorPageRoot + "405.html";
+    _errorPages["409"] = errorPageRoot + "409.html";
+    _errorPages["413"] = errorPageRoot + "413.html";
+    _errorPages["415"] = errorPageRoot + "415.html";
+    _errorPages["500"] = errorPageRoot + "500.html";
+    _errorPages["501"] = errorPageRoot + "501.html";
 }
 
 void VirtualServer::setErrorsPage(std::stringstream& serverBlock)
@@ -95,11 +105,11 @@ void VirtualServer::setErrorsPage(std::stringstream& serverBlock)
         if (removeLastChar(path, ';') == true)
         {
             pair.second = path;
-            _errorsPage[code] = path;
+            _errorPages[code] = path;
             break;
         }
         pair.second = path;
-        _errorsPage[code] = path;
+        _errorPages[code] = path;
     }
 }
 
@@ -199,14 +209,23 @@ Location* VirtualServer::getLocation(std::string resource)
     return NULL;
 }
 
+bool VirtualServer::isStatusCodeError(std::string& code)
+{
+    if (_errorPages.find(code) != _errorPages.end())
+    {
+        return true;
+    }
+    return false;
+}
+
 std::string VirtualServer::getErrorPage(std::string errorCode) const
 {
 	std::string errorPage;
 	std::map<std::string, std::string>::const_iterator it;
 
-	it = _errorsPage.find(errorCode);
+	it = _errorPages.find(errorCode);
 
-	if (it == _errorsPage.end())
+	if (it == _errorPages.end())
 	{
 		return errorPage;
 	}

@@ -16,7 +16,7 @@ class VirtualServer
     uint32_t _host;
     uint16_t _port;
     std::string _serverName;
-    std::map<std::string, std::string> _errorsPage;
+    std::map<std::string, std::string> _errorPages;
     int _clientMaxBodySize;
 
     std::set<std::string> _refAllowedErrorCode;
@@ -51,6 +51,7 @@ class VirtualServer
     void validateErrorCode(std::string& code);
     void validateDirective(const std::string& directive);
     void initReferences();
+    bool isStatusCodeError(std::string& code);
     std::map<std::string, Location> _locations;
 };
 
