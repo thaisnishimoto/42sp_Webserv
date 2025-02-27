@@ -82,6 +82,7 @@ class WebServer
 
 	void parseBody(Connection& connection);
 
+	void fillBodyWithErrorPage(Connection& connection);
     void buildResponseBuffer(Connection& connection);
     void fillResponse(Connection& connection);
 	void handleGET(Connection& connection);
