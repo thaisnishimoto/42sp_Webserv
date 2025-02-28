@@ -6,6 +6,8 @@
 #include <netinet/in.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <dirent.h> //opendir
 #include <fstream> //ifstream
 
@@ -1469,6 +1471,21 @@ void WebServer::handleGET(Connection& connection)
 			response.body = dirList;
 			return;
 		}
+	}
+
+	//target is a dir in filesystem, but request lacks trailing slash
+	struct stat path_stat;
+	memset(&path_stat, 0, sizeof(path_stat));
+	stat(request.localPathname.c_str(), &path_stat);
+	if (S_ISDIR(path_stat.st_mode) != 0)
+	{
+		std::string msg = "Target resource is a dir in filesystem without trailing slash. Redirect and add trailing slash";
+		_logger.log(DEBUG, msg);
+
+		response.statusCode = "301";
+		response.reasonPhrase = "Moved Permanently";
+		response.headerFields["location"] = request.target+ "/";
+		return;
 	}
 
 	//open file
