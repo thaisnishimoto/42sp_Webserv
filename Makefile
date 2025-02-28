@@ -41,7 +41,7 @@ $(OBJS_DIR)%.o: $(SRCS_DIR)%.cpp | $(OBJS_DIR)
 -include $(DEP)
 
 $(NAME): $(OBJS)
-	@mkdir -p content/uploads
+	@mkdir -p content/upload
 	$(CC) $(CPPFLAGS) $(INC) -o $(NAME) $(OBJS)
 
 fd: $(NAME)

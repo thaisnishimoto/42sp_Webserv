@@ -22,7 +22,6 @@ void VirtualServer::initReferences()
     _refAllowedServerDirective.insert("client_max_body_size");
 
     // Errors
-    _refAllowedErrorCode.insert("400");
     _refAllowedErrorCode.insert("403");
     _refAllowedErrorCode.insert("404");
     _refAllowedErrorCode.insert("405");
@@ -81,7 +80,6 @@ Location* VirtualServer::validateFallbackLocation(std::string resource)
 void VirtualServer::setDefaultsErrorsPage()
 {
     std::string errorPageRoot = "errors/";
-    _errorPages["400"] = errorPageRoot + "400.html";
     _errorPages["403"] = errorPageRoot + "403.html";
     _errorPages["404"] = errorPageRoot + "404.html";
     _errorPages["405"] = errorPageRoot + "405.html";

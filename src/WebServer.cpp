@@ -452,7 +452,8 @@ void WebServer::run(void)
                     fillResponse(connection);
                     if (connection.response.isWaitingForCgiOutput == true)
                         continue;
-                    if (connection.virtualServer->isStatusCodeError(connection.response.statusCode) == true)
+
+                    if (connection.virtualServer != NULL && connection.virtualServer->isStatusCodeError(connection.response.statusCode) == true)
                     {
                         fillBodyWithErrorPage(connection);
                     }
