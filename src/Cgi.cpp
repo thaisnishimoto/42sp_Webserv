@@ -35,6 +35,8 @@ int Cgi::executeScript(void)
     
     if (pid == 0)
     {
+        close(_connection.connectionFd);
+
         if (dup2(_pipeFd[0], STDIN_FILENO) == -1)
         {
             closePipe();
