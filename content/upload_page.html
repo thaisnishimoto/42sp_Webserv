@@ -8,7 +8,8 @@
 <body>
     <h1>Upload a File</h1>
     <form action="/upload" method="POST" enctype="multipart/form-data">
-        <label for="file">Select a file:</label>
+        <label for="file">Select a file (max size was set in config file):</label>
+        <br><br>
         <input type="file" id="file" name="file" required>
         <br><br>
         <button type="submit">Upload</button>
