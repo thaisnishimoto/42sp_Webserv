@@ -519,6 +519,27 @@ void WebServer::run(void)
 
 void WebServer::cleanup(void) {
     _logger.log(DEBUG, "cleaning up...");
+
+    std::map<int, Cgi*>::iterator it = _cgiMap.begin();
+    std::map<int, Cgi*>::iterator ite = _cgiMap.end();
+    while (it != ite)
+    {
+        Cgi* cgiInstance = it->second;
+
+        if (kill(cgiInstance->getPid(), SIGKILL) == 0)
+            _logger.log(DEBUG, "CGI process " + itoa(cgiInstance->getPid()) + " killed.");
+        else
+            _logger.log(ERROR, "Failed to kill CGI process " + itoa(cgiInstance->getPid()));
+        while (waitpid(cgiInstance->getPid(), NULL, WNOHANG) > 0);
+        _logger.log(DEBUG, "Cgi process reaped: " + itoa(cgiInstance->getPid()));
+        std::map<int, Cgi*>::iterator temp;
+        temp = it;
+        ++it;
+        close(temp->first);
+        _cgiMap.erase(temp);
+        delete cgiInstance;
+    }
+
     std::map<int, Connection>::iterator itConn = _connectionsMap.begin();
     std::map<int, Connection>::iterator iteConn = _connectionsMap.end();
 

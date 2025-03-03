@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Infinite Loop</title>
+</head>
+<body>
+    <h1>Teste Infinite Loop</h1>
+    <button onclick="startRequest()">Start</button>
+    <pre id="output"></pre>
+
+    <script>
+        function startRequest() {
+            const output = document.getElementById("output");
+            output.textContent = ""; // Clear previous output
+
+            fetch("/cgi-bin/infinite_loop.php") // Replace with actual CGI path
+                .then(response => response.body)
+                .then(stream => {
+                    const reader = stream.getReader();
+                    const decoder = new TextDecoder();
+                    
+                    function read() {
+                        reader.read().then(({ done, value }) => {
+                            if (done) return;
+                            output.textContent += decoder.decode(value);
+                            read(); // Keep reading until the connection is closed
+                        });
+                    }
+
+                    read();
+                })
+                .catch(error => console.error("Request failed:", error));
+        }
+    </script>
+</body>
+</html>
