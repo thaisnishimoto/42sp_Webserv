@@ -270,19 +270,23 @@ void WebServer::run(void)
                 Cgi *cgiInstance = _cgiMap[eventFd];
                 Connection& connection = cgiInstance->_connection;
 
-
                 std::string msg = "Writting request body to CGI Pipe Fd: " + itoa(eventFd);
                 _logger.log(DEBUG, msg);
 
                 int bytesWritten = write(eventFd, connection.request.body.c_str(), connection.request.body.size());
                 if (bytesWritten == -1 || bytesWritten == 0)
                 {
-                    // cgiInstance->closePipe();
                     std::string msg = "Writting request body to CGI Pipe Fd failed";
                     _logger.log(ERROR, msg);
                     connection.response.setStatusLine("500", "Internal Server Error");
                     connection.response.closeAfterSend = true;
                     connection.response.headerFields["connection"] = "close";
+                    if (connection.virtualServer != NULL && connection.virtualServer->isStatusCodeError(connection.response.statusCode) == true)
+                    {
+                        fillBodyWithErrorPage(connection);
+                    }
+                    buildResponseBuffer(connection);
+                    connection.response.isReady = true;
 
                     int cgiPid = cgiInstance->getPid();
                     if (kill(cgiPid, SIGKILL) == 0)
@@ -294,8 +298,8 @@ void WebServer::run(void)
                         _logger.log(ERROR, "Failed to send SIGKILL to CGI process: " +
                                             itoa(cgiPid) + " - " + std::strerror(errno));
                     }
-                    // while (waitpid(cgiPid, NULL, WNOHANG) > 0);
-                    // _logger.log(DEBUG, "Cgi process reaped: " + itoa(cgiPid));
+                    while (waitpid(cgiPid, NULL, WNOHANG) > 0);
+                    _logger.log(DEBUG, "Cgi process reaped: " + itoa(cgiPid));
                 }
                 if (epoll_ctl(_epollFd, EPOLL_CTL_DEL, eventFd, NULL) == 0)
                 {
@@ -309,7 +313,6 @@ void WebServer::run(void)
 
                 continue;
             }
-            // else if (_cgiMap.count(eventFd) == 1 && (_eventsList[i].events & EPOLLIN) == EPOLLIN)
             else if (_cgiMap.count(eventFd) == 1)
             {
                 Cgi *cgiInstance = _cgiMap[eventFd];
@@ -344,6 +347,10 @@ void WebServer::run(void)
                         connection.response.setStatusLine("500", "Internal Server Error");
                         connection.response.closeAfterSend = true;
                         connection.response.headerFields["connection"] = "close";
+                        if (connection.virtualServer != NULL && connection.virtualServer->isStatusCodeError(connection.response.statusCode) == true)
+                        {
+                            fillBodyWithErrorPage(connection);
+                        }
                         buildResponseBuffer(connection);
                         connection.response.isReady = true;
 
@@ -367,6 +374,10 @@ void WebServer::run(void)
                         connection.response.setStatusLine("500", "Internal Server Error");
                         connection.response.closeAfterSend = true;
                         connection.response.headerFields["connection"] = "close";
+                        if (connection.virtualServer != NULL && connection.virtualServer->isStatusCodeError(connection.response.statusCode) == true)
+                        {
+                            fillBodyWithErrorPage(connection);
+                        }
                         buildResponseBuffer(connection);
                         connection.response.isReady = true;
 
@@ -398,6 +409,10 @@ void WebServer::run(void)
                     connection.response.setStatusLine("500", "Internal Server Error");
                     connection.response.closeAfterSend = true;
                     connection.response.headerFields["connection"] = "close";
+                    if (connection.virtualServer != NULL && connection.virtualServer->isStatusCodeError(connection.response.statusCode) == true)
+                    {
+                        fillBodyWithErrorPage(connection);
+                    }
                     buildResponseBuffer(connection);
                     connection.response.isReady = true;
 
@@ -419,6 +434,10 @@ void WebServer::run(void)
 
                     connection.response.isWaitingForCgiOutput = false;
                     buildCgiResponse(connection.response, cgiInstance->getOutput());
+                    if (connection.virtualServer != NULL && connection.virtualServer->isStatusCodeError(connection.response.statusCode) == true)
+                    {
+                        fillBodyWithErrorPage(connection);
+                    }
                     buildResponseBuffer(connection);
                     connection.response.isReady = true;
 

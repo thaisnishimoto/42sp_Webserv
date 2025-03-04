@@ -75,26 +75,6 @@ int Cgi::executeScript(void)
         {
             close(_pipeFd[1]);
         }
-            // int bytesWritten = write(pipeFd[1], _connection.request.body.c_str(), _connection.request.body.size());
-            // if (bytesWritten == -1 || bytesWritten == 0)
-            // {
-            //     closePipe(pipeFd);
-            //     handleError("Writting request body to Cgi Pipe Fd failed");
-
-            //     if (kill(_pid, SIGKILL) == 0)
-            //     {
-            //         _logger.log(DEBUG, "Sent SIGKILL to CGI process: " + itoa(_pid));
-            //     }
-            //     else
-            //     {
-            //         _logger.log(ERROR, "Failed to send SIGKILL to CGI process: " +
-            //                             itoa(_pid) + " - " + std::strerror(errno));
-            //     }
-            //     while (waitpid(_pid, NULL, WNOHANG) > 0);
-            //     _logger.log(DEBUG, "Cgi process reaped: " + itoa(_pid));
-
-            //     return -1;
-            // }
         return _pipeFd[0];
     }
 }
