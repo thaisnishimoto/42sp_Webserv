@@ -3,7 +3,7 @@
 
 #define MAX_EVENTS 10
 #define TIMEOUT 60
-#define CGI_TIMEOUT 10
+#define CGI_TIMEOUT 20
 //4MB
 #define MAX_BODY_SIZE 4000000
 
