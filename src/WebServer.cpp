@@ -434,6 +434,10 @@ void WebServer::run(void)
 
                     connection.response.isWaitingForCgiOutput = false;
                     buildCgiResponse(connection.response, cgiInstance->getOutput());
+                    if (connection.virtualServer != NULL && connection.virtualServer->isStatusCodeError(connection.response.statusCode) == true)
+                    {
+                        fillBodyWithErrorPage(connection);
+                    }
                     buildResponseBuffer(connection);
                     connection.response.isReady = true;
 
