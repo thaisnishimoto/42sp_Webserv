@@ -82,7 +82,7 @@ print(f"""
     </div>
 
     <br><br>
-    <button onclick="window.location.href='/index.html'">Ask Another Question</button>
+    <button onclick="window.location.href='/cgi_yesno.html'">Ask Another Question</button>
 </body>
 </html>
 """)
