@@ -59,8 +59,6 @@ void WebServer::init(void)
     _virtualServersLookup = _config.getVirtualServers();
     _virtualServersDefault = _config.getDefaultsVirtualServers();
 
-	//select unique ports values for socket creating and binding
-
     _epollFd = epoll_create(1);
     if (_epollFd == -1)
     {
@@ -203,7 +201,6 @@ void WebServer::checkConnectionTimeouts(void)
 
 void WebServer::run(void)
 {
-    //set signal handlers
     signal(SIGINT, signalHandler);
     signal(SIGTERM, signalHandler);
     signal(SIGPIPE, signalHandler);
@@ -217,13 +214,12 @@ void WebServer::run(void)
         fdsReady = epoll_wait(_epollFd, _eventsList, MAX_EVENTS, 1000);
         if (fdsReady == -1)
         {
-            // TODO: deal with EINTR. (when signal is received during wait)
             if(_running == false)
             {
                 break;
             }
-            std::cerr << std::strerror(errno) << std::endl;
-            throw std::runtime_error("Server Error: could not create socket");
+            _logger.log(ERROR, "Could not create socket");
+            throw std::runtime_error("");
         }
 
 
@@ -235,8 +231,7 @@ void WebServer::run(void)
                 int connectionFd = acceptConnection(_epollFd, eventFd);
                 if (connectionFd == -1)
                 {
-                    // TODO: print to user log
-                    std::cerr << "Accept connection failed" << std::endl;
+                    _logger.log(ERROR, "Accept connection failed");
                 }
                 Connection connection(connectionFd);
                 _logger.log(INFO, "Connection established. fd: " +
@@ -518,7 +513,6 @@ void WebServer::run(void)
         checkConnectionTimeouts();
         checkCgiTimeouts();
     }
-
     cleanup();
 }
 
@@ -897,21 +891,6 @@ void WebServer::parseRequest(Connection& connection)
     {
         validateHeader(connection);
     }
-    if (request.parsedHeader == true)
-    {
-        // std::map<std::string, std::string>::iterator it, ite;
-        // it = request.headerFields.begin();
-        // ite = request.headerFields.end();
-        // while (it != ite)
-        // {
-        //     std::cout << "key: " << it->first << " | value: " << it->second
-        //     << std::endl;
-        //     ++it;
-        // }
-        // std::cout << "---------------------------------" << std::endl;
-        // line below for test
-        // request.continueParsing = false;
-    }
     if (request.validatedHeader == true)
     {
         parseBody(connection);
@@ -1017,7 +996,6 @@ void WebServer::parseRequestLine(std::string& connectionBuffer,
     {
         return;
     }
-    // std::cout << "request line: " << requestLine << std::endl;
     std::string requestLineCpy = requestLine;
     parseMethod(requestLineCpy, request);
     if (request.continueParsing == false)
@@ -1054,8 +1032,6 @@ void WebServer::parseTarget(std::string& requestLine, Request& request)
     request.target = requestTarget;
     _logger.log(DEBUG, "Parsed target: " + requestTarget);
     requestLine = requestLine.substr(requestLine.find(" ") + 1, std::string::npos);
-    // std::cout << "Remainder of request line: " << "'" << requestLine << "'"
-    // << std::endl;
 }
 
 void WebServer::parseMethod(std::string& requestLine, Request& request)
@@ -1076,15 +1052,10 @@ void WebServer::parseMethod(std::string& requestLine, Request& request)
     }
 
     requestLine = requestLine.substr(method.size() + 1, std::string::npos);
-    // std::cout << "Remainder of request line: " << "'" << requestLine << "'"
-    // << std::endl; next method will need to verify if number of whitespaces
-    // are adequate
 }
 
 void WebServer::parseHeader(std::string& connectionBuffer, Request& request)
 {
-    // std::cout << "inside parseHeader" << std::endl;
-    // std::cout << "buffer: " << connectionBuffer << std::endl;
     std::string fieldLine = getNextLineRN(connectionBuffer);
 
     while (fieldLine.empty() == false && fieldLine != "\r\n")
@@ -1099,8 +1070,6 @@ void WebServer::parseHeader(std::string& connectionBuffer, Request& request)
 
         std::string fieldValues = captureFieldValues(fieldLine);
 
-        // std::cout << "Field-name: " << fieldName << std::endl;
-        // std::cout << "Field-value: " << fieldValues << std::endl;
         _logger.log(DEBUG,
                     "Parsed header line -> " + fieldName + ": " + fieldValues);
 
@@ -1153,7 +1122,6 @@ std::string WebServer::captureFieldValues(std::string& fieldLine)
 
     std::string fieldLineTail;
     fieldLineTail = fieldLine.substr(colonPos + 1, std::string::npos);
-    // std::cout << "FieldLine Tail: " << fieldLineTail << std::endl;
 
     std::string fieldValues;
     while (true)
@@ -1168,12 +1136,9 @@ std::string WebServer::captureFieldValues(std::string& fieldLine)
         }
         std::string tmp;
         tmp = fieldLineTail.substr(0, commaPos);
-        // std::cout << "Pre trim tmp: " << tmp << std::endl;
         tmp = trim(tmp, " \t") + ", ";
-        // std::cout << "Post trim tmp: " << tmp << std::endl;
         fieldValues += tmp;
         fieldLineTail = fieldLineTail.substr(commaPos + 1, std::string::npos);
-        // std::cout << "fieldLineTail: " << fieldLineTail << std::endl;
     }
     return fieldValues;
 }
@@ -1242,7 +1207,6 @@ static bool validateHost(Request& request)
     {
         return false;
     }
-    // TODO: Validate server_name max size
     return true;
 }
 
@@ -1331,7 +1295,6 @@ void WebServer::validateHeader(Connection& connection)
         request.continueParsing = false;
         return;
     }
-    // need to see more about extras RN
     if (findExtraRN(request) == true)
     {
         request.badRequest = true;
@@ -1403,22 +1366,6 @@ int WebServer::acceptConnection(int epollFd, int eventFd)
     }
     return newFd;
 }
-
-// void WebServer::setNonBlocking(int fd)
-// {
-//     int flag = fcntl(fd, F_GETFL);
-//     if (flag < 0)
-//     {
-//         std::cerr << std::strerror(errno) << std::endl;
-//         throw std::runtime_error("Server Error: Could not recover fd flags");
-//     }
-//     if (fcntl(fd, F_SETFL, flag | O_NONBLOCK) < 0)
-//     {
-//         std::cerr << std::strerror(errno) << std::endl;
-//         throw std::runtime_error(
-//             "Server Error: Could not set fd to NonBlocking");
-//     }
-// }
 
 static bool isTargetDir(Request& request)
 {
@@ -1525,7 +1472,6 @@ void WebServer::handleGET(Connection& connection)
 		response.reasonPhrase = "Internal Server Error";
 		response.closeAfterSend = true;
 		response.headerFields["connection"] = "close";
-		//add body?
 		return;
 	}
 
@@ -1566,7 +1512,6 @@ void WebServer::handlePOST(Connection& connection)
 {
 	Request& request = connection.request;
 	Response& response = connection.response;
-	// Location& location = getLocation(connection.virtualServer, request.locationName);
 
 	//415
 	if (request.headerFields.count("content-type") == 0)
@@ -1675,10 +1620,6 @@ void WebServer::handlePOST(Connection& connection)
 	response.headerFields["connection"] = "close";
 	return;
 }
-
-//./content/index.html
-//./content/filesDir/file1
-//substr(0, rfind())...
 
 static std::string getDirName(Request& request)
 {

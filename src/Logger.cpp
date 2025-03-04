@@ -63,7 +63,7 @@ void Logger::log(LogLevel level, const std::string& message)
         }
         else if (level == ERROR)
         {
-            std::cout << RED << currentTimeDate() << " -  "
+            std::cerr << RED << currentTimeDate() << " -  "
                       << logLevelToString(level) << " - " << message
                       << "\033[0m" << std::endl;
         }
