@@ -667,6 +667,8 @@ void WebServer::fillResponse(Connection& connection)
 			response.statusCode = "301";
 			response.reasonPhrase = "Moved Permanently";
 			response.headerFields["location"] = location.getRedirect();
+			response.closeAfterSend = true;
+			response.headerFields["connection"] = "close";
 			return;
 		}
 
@@ -1459,6 +1461,8 @@ void WebServer::handleGET(Connection& connection)
 		response.statusCode = "301";
 		response.reasonPhrase = "Moved Permanently";
 		response.headerFields["location"] = request.target+ "/";
+		response.closeAfterSend = true;
+		response.headerFields["connection"] = "close";
 		return;
 	}
 
@@ -1656,6 +1660,8 @@ void WebServer::handleDELETE(Connection& connection)
 		response.statusCode = "301";
 		response.reasonPhrase = "Moved Permanently";
 		response.headerFields["location"] = request.target+ "/";
+		response.closeAfterSend = true;
+		response.headerFields["connection"] = "close";
 		return;
 	}
 
