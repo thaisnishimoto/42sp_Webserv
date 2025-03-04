@@ -279,7 +279,7 @@ void Config::removeComments()
 
     while (std::getline(_sFile, line))
     {
-        std::size_t commentPos = line.find("//");
+        std::size_t commentPos = line.find("#");
         if (commentPos != std::string::npos)
         {
             line = line.substr(0, commentPos);
