@@ -35,22 +35,10 @@ WebServer::WebServer(const std::string& configFile)
     _unimplementedMethods.insert("CONNECT");
     _unimplementedMethods.insert("OPTIONS");
     _unimplementedMethods.insert("TRACE");
-
-    // hard coded ports
-    // _ports.insert(8081);
-    // _ports.insert(8082);
 }
 
 WebServer::~WebServer(void)
 {
-    // for (size_t i = 0; i < _virtualServers.size(); ++i)
-    // {
-    // 	delete _virtualServers[i];
-    // }
-    // if (_epollFd > 2)
-    // {
-    // 	close(_epollFd);
-    // }
 }
 
 void WebServer::signalHandler(int signum){
@@ -152,8 +140,6 @@ void WebServer::bindSocket(void)
         int sockFd = it->first;
         struct sockaddr_in server_address;
         std::memset(&server_address, 0, sizeof(sockaddr_in));
-        // this will change later
-		// TODO change next like to allow for differente IPs
         server_address.sin_addr.s_addr = htonl(it->second.first);
         server_address.sin_family = AF_INET;
         server_address.sin_port = htons(it->second.second);
@@ -166,8 +152,8 @@ void WebServer::bindSocket(void)
             throw std::exception();
         };
 
-		std::string msg = "Binded socket " + itoa(sockFd) + " to IP bla and"
-			"port " + itoa(it->second.second);
+		std::string msg = "Binded socket " + itoa(sockFd) + " to IP " + itoa(it->second.first)
+            + " and port " + itoa(it->second.second);
 		_logger.log(DEBUG, msg);
         it++;
     }
