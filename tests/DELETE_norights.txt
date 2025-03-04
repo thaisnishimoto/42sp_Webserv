@@ -1,4 +1,4 @@
 verbose
-url = localhost:8085/filesDir/subDir/file4
+url = localhost:8080/filesDir/subDir/file4
 request = DELETE
-header = "Host: aoba"
+header = "Host: www.example.com"
