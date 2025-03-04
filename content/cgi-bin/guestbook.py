@@ -19,9 +19,13 @@ print("Content-Type: text/html\n\n")
 def read_guestbook():
     if os.path.exists(guestbook_file):
         with open(guestbook_file, 'r') as file:
-            return file.read()
+            content = file.read().strip()
+            if content:
+                return content  # Return the content of the guestbook if there are messages
+            else:
+                return None  # Return None if the file is empty
     else:
-        return "No messages yet."
+        return None  # Return None if the file doesn't exist
 
 # Function to append a message to the guestbook
 def append_message(name, message):
@@ -39,19 +43,24 @@ def get_post_data():
 # Process form data if available
 form_data = get_post_data()
 
+# Show the form page and handle the submission
 if 'name' in form_data and 'message' in form_data:
     name = form_data['name'][0]
     message = form_data['message'][0]
     append_message(name, message)
 
-# Read and display the guestbook messages
+# Read guestbook messages after form submission
 guestbook_content = read_guestbook()
 
-# Read the HTML template
+# Read the template (which contains only the form)
 with open(template_file, "r") as html_file:
     template = html_file.read()
 
-# Replace the placeholder in the template with the guestbook content
-output = template.replace("{{guestbook_messages}}", guestbook_content)
+# Add the messages below the form if available
+if guestbook_content:
+    guestbook_html = f"<h3>Messages:</h3><div>{guestbook_content}</div>"
+    # Replace the placeholder with guestbook messages
+    template += guestbook_html  # Append the messages below the form
 
-print(output)
+# Output the final HTML page with form and messages (if any)
+print(template)
