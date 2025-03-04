@@ -1,4 +1,5 @@
 verbose
+location
 url = localhost:8080/filesDir/dir
 request = DELETE
 header = "Host: www.example.com"
