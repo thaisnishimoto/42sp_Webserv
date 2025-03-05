@@ -63,3 +63,14 @@ main {
     border-radius: 8px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
 }
+
+.guestbook-container {
+    display: flex;
+    justify-content: center;
+}
+
+.guestbook-messages {
+    text-align: left;
+    max-width: 80%; 
+    margin-left: 10px;
+}

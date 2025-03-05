@@ -4,7 +4,6 @@
 $content_dir = dirname(__FILE__);
 $content_root = realpath($content_dir . '/../');
 $guestbook_file = $content_root . '/guestbook.txt';
-$template_file = $content_root . '/cgi_guestbook.html';
 
 // Function to read the guestbook messages
 function read_guestbook() {
@@ -40,21 +39,20 @@ if (!empty($form_data['name']) && !empty($form_data['message'])) {
 // Read guestbook messages after form submission
 $guestbook_content = read_guestbook();
 
-// Read the HTML template (which contains only the form)
-if (file_exists($template_file)) {
-    $template = file_get_contents($template_file);
-} else {
-    // Fallback HTML if the template is missing
-    $template = <<<HTML
+$template = <<<HTML
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Guestbook</title>
+    <link rel="stylesheet" href="../assets/styles.css">
 </head>
 <body>
-    <h2>Guestbook</h2>
+    <header>
+        <h2>Guestbook</h2>
+    </header>
+    <br><br>
     <form method="POST" action="/cgi-bin/guestbook.php">
         <label for="name">Name:</label>
         <input type="text" id="name" name="name" required>
@@ -67,11 +65,18 @@ if (file_exists($template_file)) {
 </body>
 </html>
 HTML;
-}
 
 // Append messages to the template
 if ($guestbook_content) {
-    $guestbook_html = "<h3>Messages:</h3><div>$guestbook_content</div>";
+    $guestbook_html = "<br> 
+    <h3>Messages:</h3>
+    <div class='guestbook-container'>
+        <div class='guestbook-messages'>
+            $guestbook_content
+        </div>
+    </div> 
+    <br>";
+    $guestbook_html .= '<button onclick="window.location.href=\'/\'">Return to Homepage</button>';
     $template .= $guestbook_html;
 }
 
