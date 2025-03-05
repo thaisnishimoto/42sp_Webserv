@@ -69,7 +69,7 @@ print(f"""
             color: white;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
             opacity: 0;
-            animation: fadeIn 2s forwards 1s;  /* Delay the appearance of the text */
+            animation: fadeIn 5s forwards 1s;  /* Delay the appearance of the text */
         }}
         img {{ max-width: 700px; height: auto; }}
         .error {{ color: red; }}
