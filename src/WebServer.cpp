@@ -1017,6 +1017,7 @@ void WebServer::parseVersion(std::string& requestLine, Request& request)
     {
         request.badRequest = true;
         request.continueParsing = false;
+		return;
     }
     std::string str("HTTP/1.1");
     _logger.log(DEBUG, "Parsed HTTP Version: " + str);
@@ -1029,6 +1030,7 @@ void WebServer::parseTarget(std::string& requestLine, Request& request)
     {
         request.badRequest = true;
         request.continueParsing = false;
+		return;
     }
     parseQueryString(requestTarget, request);
     request.target = requestTarget;
@@ -1051,6 +1053,7 @@ void WebServer::parseMethod(std::string& requestLine, Request& request)
     {
         request.badRequest = true;
         request.continueParsing = false;
+		return;
     }
 
     requestLine = requestLine.substr(method.size() + 1, std::string::npos);
