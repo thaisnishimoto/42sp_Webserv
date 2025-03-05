@@ -150,8 +150,8 @@ void WebServer::bindSocket(void)
             throw std::exception();
         };
 
-		std::string msg = "Binded socket " + itoa(sockFd) + " to IP " + itoa(it->second.first)
-            + " and port " + itoa(it->second.second);
+        std::string address = formatAddress(it->second.first, it->second.second);
+		std::string msg = "Binded socket " + itoa(sockFd) + " to " + address;
 		_logger.log(DEBUG, msg);
         it++;
     }

@@ -1,7 +1,6 @@
 #include "Config.hpp"
 #include "Location.hpp"
 #include "VirtualServer.hpp"
-#include <stdexcept>
 
 Config::Config(const std::string& configFile) : _logger(DEBUG2)
 {
@@ -18,6 +17,12 @@ bool Config::isValidLocation(Location& location)
    if (location.getRoot().empty())
   {
       return false;
+  }
+  if (location.getAllowedMethods().empty())
+  {
+      std::stringstream ss;
+        ss << "GET";
+      location.setAllowedMethods(ss);
   }
   return true;
 }
@@ -201,6 +206,13 @@ void Config::createVirtualServers()
         if (_virtualServers.find(pairHostToPort) != _virtualServers.end())
         {
             // add more VirtualServer for a already set host:port
+            if (_virtualServers[pairHostToPort].find(vserver.getServerName()) !=
+                _virtualServers[pairHostToPort].end())
+            {
+                _logger.log(ERROR, "Server name '" + vserver.getServerName() +
+                                       "' already defined in this host:port");
+                throw std::runtime_error("");
+            }
             _virtualServers[pairHostToPort].insert(pairNameToVirtualServers);
         }
         else

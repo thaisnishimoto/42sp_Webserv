@@ -8,6 +8,7 @@
 #include <iostream>
 #include <cerrno>
 #include <cstring>
+#include <netinet/in.h>
 
 void tolower(std::string& str);
 std::string getNextLineRN(std::string& buffer);
@@ -18,5 +19,6 @@ bool removeLastChar(std::string& word, char delimiter);
 bool isValidExtension(const std::string& fileName,
                       const std::string& extension);
 bool setNonBlocking(int fd);
+std::string formatAddress(uint32_t networkIP, uint16_t networkPort);
 
 #endif
