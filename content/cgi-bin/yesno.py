@@ -1,12 +1,21 @@
-#!/usr/bin/env python3
-
 import requests
-import cgi
 import html
+from urllib.parse import parse_qs
+import sys
+import os
 
-# Read POST data
-form = cgi.FieldStorage()
-user_question = form.getvalue("question", "").strip()
+# Function to parse POST data
+def parse_post_data():
+    content_length = int(os.environ.get('CONTENT_LENGTH', 0))
+    if content_length == 0:
+        return {}
+    
+    post_data = sys.stdin.read(content_length)
+    return parse_qs(post_data)
+
+# Read POST data (simulating FieldStorage behavior)
+form = parse_post_data()
+user_question = form.get("question", [""])[0].strip()
 
 # Sanitize user input to prevent HTML injection
 user_question = html.escape(user_question)
