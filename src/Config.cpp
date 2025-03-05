@@ -201,6 +201,13 @@ void Config::createVirtualServers()
         if (_virtualServers.find(pairHostToPort) != _virtualServers.end())
         {
             // add more VirtualServer for a already set host:port
+            if (_virtualServers[pairHostToPort].find(vserver.getServerName()) !=
+                _virtualServers[pairHostToPort].end())
+            {
+                _logger.log(ERROR, "Server name '" + vserver.getServerName() +
+                                       "' already defined in this host:port");
+                throw std::runtime_error("");
+            }
             _virtualServers[pairHostToPort].insert(pairNameToVirtualServers);
         }
         else
