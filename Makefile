@@ -2,7 +2,7 @@ NAME = webserv
 
 #flags
 CC = c++
-CPPFLAGS = -std=c++98 -Wall -Wextra -Werror -g3
+CPPFLAGS = -std=c++98 -Wall -Wextra -Werror
 DEPFLAGS = -MMD -MP
 
 #directories
