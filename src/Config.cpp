@@ -19,6 +19,12 @@ bool Config::isValidLocation(Location& location)
   {
       return false;
   }
+  if (location.getAllowedMethods().empty())
+  {
+      std::stringstream ss;
+        ss << "GET";
+      location.setAllowedMethods(ss);
+  }
   return true;
 }
 
