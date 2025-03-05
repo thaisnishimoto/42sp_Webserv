@@ -105,3 +105,18 @@ bool setNonBlocking(int fd)
     }
     return true;
 }
+
+std::string formatAddress(uint32_t networkIP, uint16_t networkPort) {
+    unsigned char bytes[4];
+    bytes[0] = (networkIP >> 24) & 0xFF;
+    bytes[1] = (networkIP >> 16) & 0xFF;
+    bytes[2] = (networkIP >> 8) & 0xFF;
+    bytes[3] = networkIP & 0xFF;
+
+    std::ostringstream oss;
+    oss << (int)bytes[0] << "." << (int)bytes[1] << "."
+        << (int)bytes[2] << "." << (int)bytes[3] << ":"
+        << networkPort;
+
+    return oss.str();
+}

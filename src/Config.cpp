@@ -1,7 +1,6 @@
 #include "Config.hpp"
 #include "Location.hpp"
 #include "VirtualServer.hpp"
-#include <stdexcept>
 
 Config::Config(const std::string& configFile) : _logger(DEBUG2)
 {
