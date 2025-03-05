@@ -175,7 +175,7 @@ void VirtualServer::setBodySize(std::string& directiveValue)
     int tmpBodySize;
 
     std::stringstream ss(directiveValue);
-    if ((ss >> tmpBodySize) == false || tmpBodySize < 0 || tmpBodySize > 1024 ||
+    if ((ss >> tmpBodySize) == false || tmpBodySize < 1 || tmpBodySize > 1024 ||
         ss.eof() == false)
     {
         _logger.log(ERROR, "Malformed client_max_body_size directive '" +
