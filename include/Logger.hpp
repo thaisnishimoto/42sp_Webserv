@@ -2,6 +2,7 @@
 #define _LOGGER_HPP_
 
 #include <iostream>
+#include <ctime>
 
 typedef enum
 {

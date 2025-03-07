@@ -1,7 +1,5 @@
 #include "Logger.hpp"
 
-#include <ctime>
-
 // INFO
 #ifndef GREEN
 #define GREEN "\033[32m"

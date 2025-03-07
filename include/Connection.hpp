@@ -1,15 +1,15 @@
 #ifndef _CONNECTION_HPP_
 #define _CONNECTION_HPP_
 
+#include "Request.hpp"
+#include "Response.hpp"
+#include "VirtualServer.hpp"
+
 #include <cerrno>
 #include <cstring>
 #include <ctime>   //time_t
 #include <netdb.h> //uint16_t
 #include <sys/socket.h>
-
-#include "Request.hpp"
-#include "Response.hpp"
-#include "VirtualServer.hpp"
 
 class Connection
 {

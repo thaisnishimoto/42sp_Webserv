@@ -1,15 +1,4 @@
 #include "WebServer.hpp"
-#include "Logger.hpp"
-#include "utils.hpp"
-#include <cstdlib>
-#include <fcntl.h>
-#include <netinet/in.h>
-#include <sys/epoll.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <dirent.h> //opendir
-#include <fstream> //ifstream
 
 static bool validateTransferEncoding(Request& request);
 static bool isTargetDir(Request& request);

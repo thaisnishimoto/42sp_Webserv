@@ -12,17 +12,23 @@
 #include "Logger.hpp"
 #include "VirtualServer.hpp"
 #include "Cgi.hpp"
+#include "utils.hpp"
 
+#include <map>
+#include <set>
 #include <cstdio>
 #include <cstdlib>
-#include <errno.h>
-#include <map>
-#include <netinet/in.h>
-#include <set>
 #include <sstream>
 #include <stdexcept>
+#include <fstream> //ifstream
+#include <fcntl.h>
+#include <dirent.h> //opendir
+#include <errno.h>
+#include <netinet/in.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <csignal>
 
