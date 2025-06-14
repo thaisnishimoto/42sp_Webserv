@@ -43,5 +43,7 @@ Functionalities:
 ![image](https://github.com/user-attachments/assets/cd561cd6-8253-43f5-9bb0-91979447e5b4)
 
 <h2>
-Results - Stress Test:
+Stress Test Results:
 </h2>
+
+![image](https://github.com/user-attachments/assets/671ac908-384b-4cbb-bb01-7402159ea4de)
